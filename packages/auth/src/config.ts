@@ -1,27 +1,33 @@
 import NextAuth from "next-auth";
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import Google from "next-auth/providers/google";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@platform/database";
-import { verifyPassword } from "./password";
 
 // ─────────────────────────────────────────────────────────────────────────
-// NOTE ON SESSION STRATEGY
+// DUMMY MODE
 //
-// The architecture doc calls for database-backed sessions (revocable from
-// the admin panel). Auth.js's Credentials provider does not support the
-// "database" session strategy — it requires "jwt". Since email/password is
-// a hard requirement here, we use JWT sessions and get revocability back
-// via `User.tokenVersion`: every JWT embeds the tokenVersion it was issued
-// with, and `packages/auth/src/revoke.ts` bumps the DB value to invalidate
-// all previously-issued tokens for that user on the next request.
-// Google OAuth continues to persist real Account/User rows via the Prisma
-// adapter regardless of session strategy — only session storage is affected.
+// This is a standalone preview build with no Postgres and no apps/backend
+// running (see lib/dummy-data.ts for the full explanation). The real config
+// this file replaces used `PrismaAdapter(prisma)` for Account/User/Session
+// persistence and a Google provider, re-checked `User.tokenVersion` against
+// the DB on every request for session revocation, and verified the
+// Credentials provider's password against a bcrypt hash stored in Postgres.
+// None of that is available here, so:
+//
+//   - No adapter at all — nothing needs to persist across a login; the JWT
+//     session cookie alone is enough for a single-account preview.
+//   - No Google provider — it would need real AUTH_GOOGLE_ID/SECRET values
+//     and a redirect target that isn't relevant to a dummy-data preview.
+//   - Credentials `authorize()` accepts ANY non-empty email + password
+//     (min 8 chars, matching the register page's own validation) and signs
+//     into the one fixed account in `lib/dummy-data.ts` — there is no real
+//     password check because there is no real user database to check it
+//     against.
+//   - The `jwt` callback no longer re-reads the DB on every request, so
+//     there is no server-side session revocation in this build — sessions
+//     just expire when the JWT does.
 // ─────────────────────────────────────────────────────────────────────────
 
 export const authConfig: NextAuthConfig = {
-  adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
@@ -35,63 +41,31 @@ export const authConfig: NextAuthConfig = {
       async authorize(credentials) {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
-        if (!email || !password) return null;
+        if (!email || !password || password.length < 8) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user || !user.passwordHash) return null; // Google-only account
-
-        const valid = await verifyPassword(password, user.passwordHash);
-        if (!valid) return null;
-
+        // Dummy mode: any credentials that pass basic validation log into
+        // the same fixed demo account, using whatever email was typed in
+        // as the display email — there's no real account lookup here.
         return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          tokenVersion: user.tokenVersion,
+          id: "dummy-user-1",
+          email,
+          name: email.split("@")[0],
+          role: "USER" as const,
+          tokenVersion: 0,
         };
       },
-    }),
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // Runs once at sign-in with `user` populated, then on every subsequent
-      // request with only `token`. We re-check tokenVersion against the DB
-      // on every call so a revoked session actually stops working on its
-      // very next request rather than lingering until expiry.
       if (user) {
         token.id = user.id as string;
         token.role = (user as { role?: string }).role ?? "USER";
         token.tokenVersion = (user as { tokenVersion?: number }).tokenVersion ?? 0;
-        return token;
-      }
-
-      if (typeof token.id === "string") {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id },
-          select: { role: true, tokenVersion: true, deletedAt: true },
-        });
-        if (!dbUser || dbUser.deletedAt || dbUser.tokenVersion !== token.tokenVersion) {
-          // Signals a revoked/deleted account — session callback below
-          // strips the user, and route guards treat `session.user` as
-          // missing (i.e. logged out) rather than trusting a stale token.
-          token.revoked = true;
-        } else {
-          token.role = dbUser.role;
-        }
       }
       return token;
     },
     async session({ session, token }) {
-      if (token.revoked) {
-        // @ts-expect-error — intentionally emptying the session for a revoked token.
-        session.user = undefined;
-        return session;
-      }
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as "USER" | "ADMIN" | "SUPER_ADMIN";

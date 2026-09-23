@@ -2,25 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { backendFetch, BackendApiError } from "../../../lib/backend-client";
+import * as dummy from "../../../lib/dummy-data";
 
 // ─────────────────────────────────────────────────────────────────────────
-// Chunk 10: Audio Studio's Server Actions no longer touch
-// @platform/database/@platform/queue/@platform/ai-core/@platform/storage/
-// @modules/audio directly — every one of those imports (and the workspace
-// dependencies they came from, see apps/web/package.json) is gone from this
-// app now. Every function below has the EXACT same exported name and
-// signature it had before this chunk (action-forms.tsx and both audio pages
-// needed zero changes) — the only thing that changed is that the body of
-// each one is now an HTTP call to apps/backend via `backendFetch` (see
-// apps/web/lib/backend-client.ts) instead of a direct Prisma/queue call.
-//
-// Next.js-specific glue (`redirect`, `revalidatePath`) still lives here,
-// same as before — those are rendering concerns apps/backend has no
-// business knowing about. `ActionResult` is still the shape every form
-// component in action-forms.tsx expects; `translateError` below is the one
-// new piece of glue that turns a thrown `BackendApiError` back into that
-// shape.
+// DUMMY MODE — Audio Studio's Server Actions previously called apps/backend
+// over HTTP via `lib/backend-client.ts` (see the git history on this file).
+// There is no apps/backend in this standalone build, so every function
+// below now reads/writes the in-memory store in `lib/dummy-data.ts`
+// directly instead. Every exported name and signature is UNCHANGED —
+// action-forms.tsx and both audio pages needed zero changes.
 // ─────────────────────────────────────────────────────────────────────────
 
 export interface ActionResult<T = void> {
@@ -30,9 +20,6 @@ export interface ActionResult<T = void> {
 }
 
 function translateError(err: unknown, fallback: string): ActionResult<never> {
-  if (err instanceof BackendApiError) {
-    return { ok: false, message: err.message };
-  }
   return { ok: false, message: err instanceof Error ? err.message : fallback };
 }
 
@@ -60,11 +47,6 @@ interface AudioExportRow {
   type: string;
   sceneIds: string[];
   storageKey: string;
-  // A real `Date` on the backend's side, but everything crossing the HTTP
-  // boundary is JSON — `JSON.stringify`/`JSON.parse` never produce `Date`
-  // instances, so this arrives here as an ISO string. `new Date(...)` (see
-  // the detail page) happily accepts either, but typing it as `Date` here
-  // would be a lie about what's actually on the wire.
   createdAt: string;
 }
 
@@ -81,7 +63,7 @@ interface AudioProjectDetail {
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function listAudioProjects(): Promise<ProjectSummaryRow[]> {
-  return backendFetch<ProjectSummaryRow[]>("/audio/projects");
+  return dummy.listAudioProjects();
 }
 
 /**
@@ -97,22 +79,19 @@ export async function createAudioProject(
     return { ok: false, message: "Project name is required." };
   }
 
-  let result: { audioProjectId: string };
+  let audioProjectId: string;
   try {
-    result = await backendFetch<{ audioProjectId: string }>("/audio/projects", {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    });
+    audioProjectId = dummy.createAudioProject(name);
   } catch (err) {
     return translateError(err, "Failed to create project.");
   }
 
   revalidatePath("/audio");
-  redirect(`/audio/${result.audioProjectId}`);
+  redirect(`/audio/${audioProjectId}`);
 }
 
 export async function getAudioProjectDetail(audioProjectId: string): Promise<AudioProjectDetail> {
-  return backendFetch<AudioProjectDetail>(`/audio/projects/${audioProjectId}`);
+  return dummy.getAudioProjectDetail(audioProjectId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -127,10 +106,7 @@ export async function addScene(audioProjectId: string, formData: FormData): Prom
   const title = String(formData.get("title") ?? "").trim() || undefined;
 
   try {
-    await backendFetch(`/audio/projects/${audioProjectId}/scenes`, {
-      method: "POST",
-      body: JSON.stringify({ text, title }),
-    });
+    dummy.addScene(audioProjectId, text, title);
   } catch (err) {
     return translateError(err, "Failed to add scene.");
   }
@@ -141,7 +117,7 @@ export async function addScene(audioProjectId: string, formData: FormData): Prom
 
 export async function deleteScene(audioProjectId: string, sceneId: string): Promise<ActionResult> {
   try {
-    await backendFetch(`/audio/projects/${audioProjectId}/scenes/${sceneId}`, { method: "DELETE" });
+    dummy.deleteScene(audioProjectId, sceneId);
   } catch (err) {
     return translateError(err, "Failed to delete scene.");
   }
@@ -158,10 +134,7 @@ export interface ImportScenesResult {
 export async function importScenesFromCsv(audioProjectId: string, csvText: string): Promise<ActionResult<ImportScenesResult>> {
   let data: ImportScenesResult;
   try {
-    data = await backendFetch<ImportScenesResult>(`/audio/projects/${audioProjectId}/scenes/import`, {
-      method: "POST",
-      body: JSON.stringify({ csvText }),
-    });
+    data = dummy.importScenesFromCsv(audioProjectId, csvText);
   } catch (err) {
     return translateError(err, "Failed to import CSV.");
   }
@@ -171,15 +144,13 @@ export async function importScenesFromCsv(audioProjectId: string, csvText: strin
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Generation (credits-consuming — apps/backend queues it via enqueueJob)
+// Generation (dummy mode: completes instantly, no real TTS/queue/worker)
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function generateSceneAudio(sceneId: string): Promise<ActionResult> {
   let result: { audioProjectId: string };
   try {
-    result = await backendFetch<{ ok: true; audioProjectId: string }>(`/audio/scenes/${sceneId}/generate`, {
-      method: "POST",
-    });
+    result = dummy.generateSceneAudio(sceneId);
   } catch (err) {
     return translateError(err, "Failed to queue generation.");
   }
@@ -191,9 +162,7 @@ export async function generateSceneAudio(sceneId: string): Promise<ActionResult>
 export async function generateAllPendingScenes(audioProjectId: string): Promise<ActionResult<{ queued: number; failures: string[] }>> {
   let data: { queued: number; failures: string[] };
   try {
-    data = await backendFetch<{ queued: number; failures: string[] }>(`/audio/projects/${audioProjectId}/generate-all`, {
-      method: "POST",
-    });
+    data = dummy.generateAllPendingScenes(audioProjectId);
   } catch (err) {
     return translateError(err, "Failed to queue generation.");
   }
@@ -212,10 +181,7 @@ export async function requestExport(
   type: "CHUNK" | "MERGED",
 ): Promise<ActionResult> {
   try {
-    await backendFetch(`/audio/projects/${audioProjectId}/export`, {
-      method: "POST",
-      body: JSON.stringify({ sceneIds, type }),
-    });
+    dummy.requestExport(audioProjectId, sceneIds, type);
   } catch (err) {
     return translateError(err, "Failed to queue export.");
   }
@@ -225,12 +191,11 @@ export async function requestExport(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Playback / download URLs (short-lived presigned reads)
+// Playback / download URLs (dummy mode: always the same placeholder file)
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function getSignedAudioUrl(storageKey: string): Promise<string> {
-  const { url } = await backendFetch<{ url: string }>(`/audio/signed-url?key=${encodeURIComponent(storageKey)}`);
-  return url;
+  return dummy.getSignedAudioUrl(storageKey);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
