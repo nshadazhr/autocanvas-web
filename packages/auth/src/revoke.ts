@@ -1,13 +1,15 @@
-// ─────────────────────────────────────────────────────────────────────────
-// DUMMY MODE — no real user database to bump `tokenVersion` in (see
-// lib/dummy-data.ts and config.ts). Nothing in this app currently calls
-// `revokeAllSessions` (it existed for a future admin "log out everywhere"
-// action), but it's re-exported from `index.ts`, and a barrel re-export
-// still evaluates this module on import — so it must not reach for
-// `@platform/database` even though it's dead code today.
-// ─────────────────────────────────────────────────────────────────────────
+import { prisma } from "@platform/database";
 
-export async function revokeAllSessions(_userId: string): Promise<void> {
-  // No-op in dummy mode: sessions are plain JWTs with nothing durable to
-  // revoke server-side. See config.ts for the full explanation.
+// Bumping `tokenVersion` is the whole mechanism: config.ts's `jwt` callback
+// re-checks every outstanding session's `tokenVersion` against the DB on
+// every request and drops any session whose value no longer matches. This
+// function is the "admin-initiated logout" / "log out everywhere" path —
+// a password reset (./password-reset.ts) does the same increment inline as
+// part of its own transaction instead of calling this, since it's already
+// inside a `$transaction`.
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { tokenVersion: { increment: 1 } },
+  });
 }

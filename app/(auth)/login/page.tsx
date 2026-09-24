@@ -21,9 +21,10 @@ const STICKY_NOTES = [
 // Split-screen auth layout matching the AutoCanvas reference design: a
 // marketing/illustration panel on the left, and a card on the right that
 // starts on a decorative "phone OTP" landing view, then switches to the
-// real, functional email+password form (the only login method this
-// dummy-mode build actually wires up — see packages/auth/src/config.ts's
-// Credentials-only provider list) once "Email Login" is pressed.
+// real, DB-backed email+password form (Google/Facebook/Phone OTP are still
+// "coming soon" — this phase is email+password only, see
+// packages/auth/src/config.ts's Credentials-only provider list) once
+// "Email Login" is pressed.
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
@@ -238,7 +239,14 @@ export default function LoginPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Password</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Password
+                    </label>
+                    <Link href="/forgot-password" className="text-xs font-medium text-indigo-300 hover:text-indigo-200">
+                      Forgot password?
+                    </Link>
+                  </div>
                   <input
                     type="password"
                     placeholder="At least 8 characters"
