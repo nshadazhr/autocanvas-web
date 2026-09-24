@@ -1,5 +1,5 @@
 import { auth } from "@platform/auth";
-import { prisma } from "@platform/database";
+import { getCreditAccount } from "../../../lib/dummy-data";
 import { listCheckoutablePlans, getCurrentPlanKey, startCheckout } from "./actions";
 import { Card } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
@@ -21,7 +21,7 @@ export default async function BillingPage({
   const [plans, currentPlanKey, creditAccount] = await Promise.all([
     listCheckoutablePlans(),
     getCurrentPlanKey(),
-    prisma.creditAccount.findUnique({ where: { userId: session.user.id }, select: { balance: true } }),
+    Promise.resolve(getCreditAccount()),
   ]);
 
   return (
@@ -29,7 +29,7 @@ export default async function BillingPage({
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Billing &amp; Plans</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Current credit balance: <strong className="text-slate-900">{creditAccount ? Number(creditAccount.balance) : 0}</strong>
+          Current credit balance: <strong className="text-slate-900">{creditAccount.balance}</strong>
           {currentPlanKey ? (
             <>
               {" "}

@@ -1,114 +1,47 @@
 import Link from "next/link";
-import { getAudioProjectDetail } from "../actions";
-import {
-  AddSceneForm,
-  CsvImportForm,
-  GenerateSceneButton,
-  GenerateAllButton,
-  DeleteSceneButton,
-  ExportForm,
-  PlayOrDownloadLink,
-} from "../action-forms";
-import { StatusBadge } from "../../../../components/ui/badge";
-import { EmptyState } from "../../../../components/ui/empty-state";
+import { getAudioProjectDetail, checkCredits } from "../actions";
+import { ProjectWorkspace } from "./project-workspace";
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins === 1) return "1 min ago";
+  if (mins < 60) return `${mins} mins ago`;
+  const hours = Math.round(mins / 60);
+  if (hours === 1) return "1 hour ago";
+  if (hours < 24) return `${hours} hours ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
 
 export default async function AudioProjectDetailPage({ params }: { params: { audioProjectId: string } }) {
   const audioProject = await getAudioProjectDetail(params.audioProjectId);
 
+  // "Credits Required" in the reference design tracks what's left to
+  // generate, not the whole project — so it's based on non-completed
+  // scenes' characters, matching what hitting Generate would actually cost.
+  const pendingCharacters = audioProject.scenes
+    .filter((s) => s.status !== "COMPLETED")
+    .reduce((sum, s) => sum + s.characters, 0);
+  const creditStats = await checkCredits(pendingCharacters);
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">{audioProject.project.name}</h1>
+          <Link href="/audio" className="text-sm font-medium text-slate-400 hover:text-white">
+            ← Back to Projects
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold text-white">{audioProject.project.name}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {audioProject.scenes.length} scene{audioProject.scenes.length === 1 ? "" : "s"} · default format{" "}
-            {audioProject.defaultFormat}
+            Saved {timeAgo(audioProject.lastSavedAt)} · {audioProject.defaultFormat.toUpperCase()}
+            {audioProject.language && <> · {audioProject.language}</>}
           </p>
         </div>
-        <Link href="/audio" className="text-sm font-medium text-slate-500 hover:text-slate-900">
-          ← All projects
-        </Link>
       </div>
 
-      <section className="flex flex-col gap-4 sm:flex-row">
-        <div className="flex-1">
-          <CsvImportForm audioProjectId={audioProject.id} />
-        </div>
-        <div className="flex-1">
-          <AddSceneForm audioProjectId={audioProject.id} />
-        </div>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-slate-900">Scenes</h2>
-          {audioProject.scenes.length > 0 && <GenerateAllButton audioProjectId={audioProject.id} />}
-        </div>
-
-        {audioProject.scenes.length === 0 ? (
-          <EmptyState
-            title="No scenes yet"
-            description="Add one manually or import a CSV above to get started."
-          />
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {audioProject.scenes.map((scene) => {
-              const latestGeneration = scene.generations[0];
-              return (
-                <li key={scene.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-700">Scene {scene.sceneNumber}</span>
-                        {scene.title && <span className="text-sm text-slate-500">— {scene.title}</span>}
-                        <StatusBadge status={scene.status} />
-                      </div>
-                      <p className="mt-1 truncate text-sm text-slate-600">{scene.text}</p>
-                    </div>
-                    <div className="flex flex-shrink-0 items-center gap-3">
-                      {scene.status === "COMPLETED" && latestGeneration?.storageKey && (
-                        <PlayOrDownloadLink storageKey={latestGeneration.storageKey} label="audio" />
-                      )}
-                      {(scene.status === "PENDING" || scene.status === "FAILED") && (
-                        <GenerateSceneButton sceneId={scene.id} />
-                      )}
-                      <DeleteSceneButton audioProjectId={audioProject.id} sceneId={scene.id} />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium text-slate-900">Export</h2>
-        <ExportForm
-          audioProjectId={audioProject.id}
-          scenes={audioProject.scenes.map((s) => ({ id: s.id, sceneNumber: s.sceneNumber, title: s.title, status: s.status }))}
-        />
-      </section>
-
-      {audioProject.exports.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-lg font-medium text-slate-900">Past exports</h2>
-          <ul className="flex flex-col gap-2">
-            {audioProject.exports.map((exp) => (
-              <li
-                key={exp.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
-              >
-                <div className="text-sm text-slate-600">
-                  {exp.type === "MERGED" ? "Merged export" : "Chunk export"} · {exp.sceneIds.length} scene
-                  {exp.sceneIds.length === 1 ? "" : "s"} · {new Date(exp.createdAt).toLocaleString()}
-                </div>
-                <PlayOrDownloadLink storageKey={exp.storageKey} label="file" />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <ProjectWorkspace audioProject={audioProject} creditStats={creditStats} />
     </div>
   );
 }

@@ -1,0 +1,11 @@
+# OSX
+#
+.DS_Store
+.vscode/
+# Xcode
+#
+
+# node.js
+#
+node_modules/
+.next/
