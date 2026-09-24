@@ -1,4 +1,15 @@
-import type { OrgMemberRole, UserRole } from "@platform/database";
+// NOTE: this file is scaffolding for RBAC checks other modules (audio today,
+// script/image/video later) will call once they exist — nothing in this
+// dummy-mode build actually invokes `authorize()`/`requireAuthorized()` yet.
+// It used to import `OrgMemberRole`/`UserRole` from "@platform/database",
+// i.e. the real Prisma-generated enums — but this standalone build's
+// `@platform/database` package (see packages/database/src/index.ts) just
+// re-exports the stock `@prisma/client` with no real schema behind it, so
+// those enum types were never actually generated and the import failed
+// `next build`'s type-check. Declaring the same shapes locally keeps this
+// module self-contained and type-safe without requiring a real database.
+type UserRole = "USER" | "ADMIN" | "SUPER_ADMIN";
+type OrgMemberRole = "OWNER" | "ADMIN" | "EDITOR" | "WRITER" | "DESIGNER" | "VIEWER";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Two independent RBAC layers, checked through ONE gate (`authorize`):

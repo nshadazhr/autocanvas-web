@@ -32,17 +32,27 @@ interface ProjectSummaryRow {
   audioProject: { id: string; _count: { scenes: number } } | null;
 }
 
-interface AudioSceneDetailRow {
+export interface AudioSceneDetailRow {
   id: string;
   orderIndex: number;
   status: SceneStatus;
   sceneNumber: number;
   title: string | null;
   text: string;
+  speaker: string;
+  style: string;
+  emotion: string;
+  voice: string;
+  gender: "Male" | "Female";
+  speed: number;
+  pitch: number;
+  words: number;
+  characters: number;
+  credits: number;
   generations: Array<{ storageKey: string | null }>;
 }
 
-interface AudioExportRow {
+export interface AudioExportRow {
   id: string;
   type: string;
   sceneIds: string[];
@@ -50,13 +60,23 @@ interface AudioExportRow {
   createdAt: string;
 }
 
-interface AudioProjectDetail {
+export interface AudioProjectDetail {
   id: string;
   defaultFormat: string;
+  defaultVoice?: string;
+  language?: string;
+  lastSavedAt: string;
   project: { id: string; name: string; ownerId: string };
   scenes: AudioSceneDetailRow[];
   exports: AudioExportRow[];
+  speakers: Record<string, { voice: string; gender: "Male" | "Female" }>;
 }
+
+// NOTE: the VOICE_CATALOG/STYLE_OPTIONS/EMOTION_OPTIONS dropdown catalogs
+// used to be re-exported from here, but a "use server" file can only export
+// async functions — see ./catalogs.ts for the actual (non-"use server")
+// re-export client components should import instead.
+export type { SceneFieldUpdate } from "../../../lib/dummy-data";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Projects
@@ -69,6 +89,16 @@ export async function listAudioProjects(): Promise<ProjectSummaryRow[]> {
 /**
  * Signature matches `useFormState`'s `(prevState, formData) => nextState` —
  * same reasoning as before this chunk (see the git history on this file).
+ *
+ * Backs the "Create New Audio Project" modal. `name` is the only required
+ * field. `method` picks how the initial scenes are populated:
+ *  - "paste": `storyText` is split into scenes on blank lines (a simple,
+ *    honest paragraph split — there's no real AI splitter in dummy mode).
+ *  - "csv": `csvFile` is imported the same way the CSV import form on the
+ *    project detail page does it.
+ * `voice`/`language` have no real voice catalog or TTS engine behind them
+ * yet — they're saved as project preferences and shown back on the detail
+ * page, but don't affect generation.
  */
 export async function createAudioProject(
   _prevState: ActionResult<{ audioProjectId: string }> | null,
@@ -79,9 +109,33 @@ export async function createAudioProject(
     return { ok: false, message: "Project name is required." };
   }
 
+  const method = String(formData.get("method") ?? "paste");
+  const voice = String(formData.get("voice") ?? "").trim() || undefined;
+  const language = String(formData.get("language") ?? "").trim() || undefined;
+
   let audioProjectId: string;
   try {
-    audioProjectId = dummy.createAudioProject(name);
+    audioProjectId = dummy.createAudioProject(name, { defaultVoice: voice, language });
+
+    if (method === "csv") {
+      const file = formData.get("csvFile");
+      if (file instanceof File && file.size > 0) {
+        const csvText = await file.text();
+        dummy.importScenesFromCsv(audioProjectId, csvText);
+      }
+    } else {
+      const storyText = String(formData.get("storyText") ?? "").trim();
+      if (storyText) {
+        const paragraphs = storyText
+          .split(/\n\s*\n/)
+          .map((p) => p.trim())
+          .filter(Boolean);
+        const chunks = paragraphs.length > 0 ? paragraphs : [storyText];
+        for (const chunk of chunks) {
+          dummy.addScene(audioProjectId, chunk);
+        }
+      }
+    }
   } catch (err) {
     return translateError(err, "Failed to create project.");
   }
@@ -169,6 +223,66 @@ export async function generateAllPendingScenes(audioProjectId: string): Promise<
 
   revalidatePath(`/audio/${audioProjectId}`);
   return { ok: true, data };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Scenes table bulk actions — Save Changes / Apply Voice to Speaker /
+// Reset Selected to Pending (see the rich Scenes table in the reference
+// design). All three revalidate the project detail page the same way the
+// existing single-scene actions above do.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function updateScenes(
+  audioProjectId: string,
+  updates: dummy.SceneFieldUpdate[],
+): Promise<ActionResult> {
+  try {
+    dummy.bulkUpdateScenes(audioProjectId, updates);
+  } catch (err) {
+    return translateError(err, "Failed to save changes.");
+  }
+
+  revalidatePath(`/audio/${audioProjectId}`);
+  return { ok: true };
+}
+
+export async function applyVoiceToSpeaker(
+  audioProjectId: string,
+  speaker: string,
+  voice: string,
+  gender: "Male" | "Female",
+): Promise<ActionResult<{ affected: number }>> {
+  let affected: number;
+  try {
+    affected = dummy.applyVoiceToSpeaker(audioProjectId, speaker, voice, gender);
+  } catch (err) {
+    return translateError(err, "Failed to apply voice.");
+  }
+
+  revalidatePath(`/audio/${audioProjectId}`);
+  return { ok: true, data: { affected } };
+}
+
+export async function resetScenesToPending(
+  audioProjectId: string,
+  sceneIds: string[],
+): Promise<ActionResult<{ affected: number }>> {
+  let affected: number;
+  try {
+    affected = dummy.resetScenesToPending(audioProjectId, sceneIds);
+  } catch (err) {
+    return translateError(err, "Failed to reset scenes.");
+  }
+
+  revalidatePath(`/audio/${audioProjectId}`);
+  return { ok: true, data: { affected } };
+}
+
+export async function checkCredits(
+  characters: number,
+): Promise<{ creditsRequired: number; availableCredits: number }> {
+  const account = dummy.getCreditAccount();
+  return { creditsRequired: dummy.creditsForCharacters(characters), availableCredits: account.balance };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

@@ -8,38 +8,33 @@ import { usePathname } from "next/navigation";
 // dummy-mode build — everything else routes to a small "Coming Soon" page
 // (see components/coming-soon.tsx) so no link in the sidebar ever 404s.
 //
-// Note: the reference design listed "Home" and "Dashboard" as two separate
-// entries pointing at the same kind of overview page — collapsed into one
-// "Dashboard" entry here per instruction, since having both was redundant.
+// Matches the "AutoCanvas" reference design: a flat "Create" row of studios
+// (no more Dashboard/Home split, no separate Music/Sound Effects entries —
+// those still exist as routes, just not linked from the sidebar anymore)
+// followed by one "Workspace" section that folds what used to be "Library"
+// and "Account" together.
 const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon: string }[] }[] = [
   {
     label: "",
-    items: [{ href: "/dashboard", label: "Dashboard", icon: "🏠" }],
+    items: [{ href: "/dashboard", label: "Home", icon: "🏠" }],
   },
   {
-    label: "Create",
+    label: "",
     items: [
-      { href: "/audio", label: "Audio Studio", icon: "🎵" },
+      { href: "/audio", label: "Audio Studio", icon: "🎧" },
       { href: "/script", label: "Script Studio", icon: "📝" },
       { href: "/images", label: "Image Studio", icon: "🖼️" },
       { href: "/thumbnails", label: "Thumbnail Studio", icon: "🖼" },
       { href: "/videos", label: "Video Studio", icon: "▶️" },
-      { href: "/music", label: "Music", icon: "🎶" },
-      { href: "/sound-effects", label: "Sound Effects", icon: "🔊" },
     ],
   },
   {
-    label: "Library",
+    label: "Workspace",
     items: [
       { href: "/projects", label: "Projects", icon: "📁" },
-      { href: "/assets", label: "Assets", icon: "🗂️" },
       { href: "/templates", label: "Templates", icon: "🧩" },
+      { href: "/assets", label: "Assets", icon: "🗂️" },
       { href: "/workflows", label: "Workflows", icon: "🔀" },
-    ],
-  },
-  {
-    label: "Account",
-    items: [
       { href: "/billing", label: "Billing", icon: "💳" },
       { href: "/settings", label: "Settings", icon: "⚙️" },
     ],
@@ -57,14 +52,15 @@ export function Sidebar() {
         </span>
         <span className="flex flex-col leading-none">
           <span className="text-sm font-bold tracking-tight text-white">
-            AI Creator<span className="text-indigo-400"> Platform</span>
+            Auto<span className="text-indigo-400">Canvas</span>
           </span>
+          <span className="mt-0.5 text-[10px] text-slate-500">Create. Animate. Share.</span>
         </span>
       </Link>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-6">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.label || "top"} className="mb-4">
+      <nav className="flex-1 overflow-y-auto px-3 pb-4">
+        {NAV_SECTIONS.map((section, i) => (
+          <div key={section.label || `top-${i}`} className="mb-4">
             {section.label && (
               <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 {section.label}
@@ -90,6 +86,23 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {/* "Upgrade to Pro" card — always visible, matches the reference design.
+          Dummy mode's billing/checkout flow (see app/(app)/billing) is real
+          enough to click through, but there's no actual payment provider
+          behind it — see lib/dummy-data.ts's applyDummyCheckout(). */}
+      <div className="mx-3 mb-4 rounded-xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/10 to-blue-500/5 p-4">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-white">🏆 Upgrade to Pro</p>
+        <p className="mt-1 text-xs leading-snug text-slate-400">
+          Get more credits, premium voices and advanced features.
+        </p>
+        <Link
+          href="/billing"
+          className="mt-3 flex items-center justify-center rounded-lg bg-gradient-to-r from-indigo-500 to-blue-500 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/25 transition-opacity hover:opacity-90"
+        >
+          Upgrade Now
+        </Link>
+      </div>
     </aside>
   );
 }

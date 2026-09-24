@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata = {
-  title: "AI Creator Platform",
+  title: "AutoCanvas — Create. Animate. Share.",
   description: "AI-powered content creation, starting with Audio Studio.",
 };
 

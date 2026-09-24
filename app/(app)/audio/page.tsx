@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listAudioProjects } from "./actions";
 import { getCreditAccount, getCurrentPlanKey, DUMMY_PLANS } from "../../../lib/dummy-data";
-import { CreateProjectForm } from "./action-forms";
+import { AudioStudioHero } from "./audio-studio-hero";
 
 // Dummy mode: projects/credits come from lib/dummy-data.ts's in-memory store
 // — see that file. Everything below that has a real backing feature (create
@@ -10,14 +10,6 @@ import { CreateProjectForm } from "./action-forms";
 // real feature yet in this preview, so they point at the /voices "coming
 // soon" page instead of a dead link. The Popular Voices list on the right is
 // illustrative only — there's no real voice catalog behind it yet.
-const QUICK_ACTIONS = [
-  { href: "#create-project", icon: "📥", label: "Import Story", sub: "CSV or paste a script" },
-  { href: "/voices", icon: "🎚️", label: "Manage Voices", sub: "Assign character voices" },
-  { href: "/voices", icon: "🎙️", label: "Voice Editor", sub: "Fine-tune style & emotion" },
-  { href: "#create-project", icon: "🎵", label: "Generate Audio", sub: "Turn scenes into speech" },
-  { href: "#create-project", icon: "🔊", label: "Merge Audio", sub: "Combine scenes into one file" },
-  { href: "/voices", icon: "⭐", label: "My Voices", sub: "Your saved voice presets" },
-];
 
 // Illustrative only — no real voice catalog exists yet in this preview.
 const POPULAR_VOICES = [
@@ -63,57 +55,8 @@ export default async function AudioStudioPage() {
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
       <div className="flex flex-1 flex-col gap-8">
-        {/* Hero banner */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-indigo-600/20 via-indigo-500/10 to-transparent px-8 py-10">
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-300">Audio Studio</p>
-          <h1 className="mt-2 max-w-lg text-3xl font-bold text-white sm:text-4xl">
-            Turn Your Stories into{" "}
-            <span className="bg-gradient-to-r from-indigo-400 to-blue-400 bg-clip-text text-transparent">
-              Realistic Voices
-            </span>
-          </h1>
-          <p className="mt-3 max-w-md text-sm text-slate-400">
-            Generate high-quality AI narration for your stories, with emotions, multiple characters, and
-            natural-sounding narration.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="#create-project"
-              className="rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-opacity hover:opacity-90"
-            >
-              + Create New Project
-            </Link>
-            <span
-              className="cursor-not-allowed rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-semibold text-slate-400"
-              title="Demo only — no walkthrough video in this preview"
-            >
-              ▶ Watch Tutorial
-            </span>
-          </div>
-          <span className="pointer-events-none absolute -right-6 -top-6 text-[120px] opacity-10 sm:text-[160px]">
-            🎧
-          </span>
-        </div>
-
-        {/* Quick Actions */}
-        <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Quick Actions</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {QUICK_ACTIONS.map((item, i) => (
-              <Link
-                key={`${item.label}-${i}`}
-                href={item.href}
-                className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 text-lg">
-                  {item.icon}
-                </span>
-                <span className="text-sm font-medium text-white">{item.label}</span>
-                <span className="text-xs text-slate-500">{item.sub}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
+        {/* Hero banner + Quick Actions + Create Project modal — client component (see audio-studio-hero.tsx) */}
+        <AudioStudioHero />
 
         {/* Recent Projects */}
         <div>
@@ -167,12 +110,6 @@ export default async function AudioStudioPage() {
               </table>
             </div>
           )}
-        </div>
-
-        {/* Create project — real form, anchored from the hero/quick-action buttons above */}
-        <div id="create-project" className="scroll-mt-8">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Create New Project</h2>
-          <CreateProjectForm />
         </div>
       </div>
 

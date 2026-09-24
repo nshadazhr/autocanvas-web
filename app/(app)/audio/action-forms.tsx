@@ -3,7 +3,6 @@
 import { useState, useRef } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import {
-  createAudioProject,
   addSceneFormAction,
   importScenesFromCsvFormAction,
   generateSceneAudioFormAction,
@@ -23,10 +22,10 @@ import {
 // only ever rendered inside that shell, on the audio project pages.
 // ─────────────────────────────────────────────────────────────────────────
 
-const primaryButtonClasses =
+export const primaryButtonClasses =
   "inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
-function SubmitButton({ children, pendingChildren, className }: { children: React.ReactNode; pendingChildren: React.ReactNode; className?: string }) {
+export function SubmitButton({ children, pendingChildren, className }: { children: React.ReactNode; pendingChildren: React.ReactNode; className?: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} className={className ?? primaryButtonClasses}>
@@ -35,30 +34,16 @@ function SubmitButton({ children, pendingChildren, className }: { children: Reac
   );
 }
 
-function ErrorText({ message }: { message?: string }) {
+export function ErrorText({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="mt-2 text-sm text-red-400">{message}</p>;
 }
 
-export function CreateProjectForm() {
-  const [state, formAction] = useFormState<ActionResult<{ audioProjectId: string }> | null, FormData>(createAudioProject, null);
-  return (
-    <form
-      action={formAction}
-      className="flex flex-col items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center"
-    >
-      <input
-        type="text"
-        name="name"
-        placeholder='New project name (e.g. "Episode 12 Narration")'
-        required
-        className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none sm:w-80"
-      />
-      <SubmitButton pendingChildren="Creating...">Create project</SubmitButton>
-      <ErrorText message={state?.message} />
-    </form>
-  );
-}
+// NOTE: the old inline "create project" form (a name input + submit button
+// right on the /audio page) has been replaced by the CreateProjectModal
+// (see ./create-project-modal.tsx) — a proper popup dialog matching the
+// reference design, opened from the hero button / quick actions instead of
+// scrolling to an anchored section.
 
 export function AddSceneForm({ audioProjectId }: { audioProjectId: string }) {
   const action = addSceneFormAction.bind(null, audioProjectId);
@@ -108,12 +93,14 @@ export function CsvImportForm({ audioProjectId }: { audioProjectId: string }) {
       <input
         type="file"
         name="file"
-        accept=".csv,text/csv"
+        accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
         required
         className="text-sm text-slate-400 file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-white/20"
       />
       <p className="text-xs text-slate-500">
-        Columns: text (required), title, sceneNumber, voiceName, character, style, emotion, language, targetDuration.
+        Accepts .csv, .tsv, or .txt (delimiter is auto-detected) — same as the desktop importer. Columns (any
+        casing/underscores, e.g. "Scene Title" or "scene_title"): text (required), title, speaker/character, voice,
+        gender, style, emotion, speed, pitch, sceneNumber. Quoted fields with commas inside are handled correctly.
       </p>
       <div>
         <SubmitButton pendingChildren="Importing...">Import CSV</SubmitButton>
@@ -175,10 +162,11 @@ export function GenerateAllButton({ audioProjectId }: { audioProjectId: string }
 }
 
 export function DeleteSceneButton({ audioProjectId, sceneId }: { audioProjectId: string; sceneId: string }) {
-  const action = deleteScene.bind(null, audioProjectId, sceneId);
   return (
     <form
-      action={action}
+      action={async () => {
+        await deleteScene(audioProjectId, sceneId);
+      }}
       onSubmit={(e) => {
         if (!confirm("Delete this scene? This cannot be undone.")) {
           e.preventDefault();
