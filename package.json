@@ -1,31 +1,32 @@
 {
-  "name": "@platform/web",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@platform/auth": "file:./packages/auth",
-    "@platform/billing": "file:./packages/billing",
-    "@platform/credits": "file:./packages/credits",
-    "@platform/database": "file:./packages/database",
-    "next": "14.2.15",
-    "next-auth": "5.0.0-beta.25",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.14.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.13",
-    "typescript": "^5.5.0"
-  }
+	"name": "@platform/web",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
+		"typecheck": "tsc --noEmit",
+		"generate": "dotenv -e ../../.env.local -- prisma generate"
+	},
+	"dependencies": {
+		"@platform/auth": "file:./packages/auth",
+		"@platform/billing": "file:./packages/billing",
+		"@platform/credits": "file:./packages/credits",
+		"@platform/database": "file:./packages/database",
+		"next": "14.2.15",
+		"next-auth": "5.0.0-beta.25",
+		"react": "^18.3.0",
+		"react-dom": "^18.3.0",
+		"zod": "^3.23.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.14.0",
+		"@types/react": "^18.3.0",
+		"@types/react-dom": "^18.3.0",
+		"autoprefixer": "^10.4.20",
+		"postcss": "^8.4.47",
+		"tailwindcss": "^3.4.13",
+		"typescript": "^5.5.0"
+	}
 }

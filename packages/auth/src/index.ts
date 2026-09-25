@@ -2,6 +2,11 @@ export { authConfig, handlers, auth, signIn, signOut } from "./config";
 export { hashPassword, verifyPassword } from "./password";
 export { revokeAllSessions } from "./revoke";
 export {
+  createPasswordResetToken,
+  consumePasswordResetToken,
+  type ConsumeResetTokenResult,
+} from "./password-reset";
+export {
   authorize,
   requireAuthorized,
   ForbiddenError,
