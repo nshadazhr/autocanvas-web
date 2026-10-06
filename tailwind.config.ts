@@ -5,7 +5,7 @@ import type { Config } from "tailwindcss";
 // plain inline styles (see layout.tsx's old comment), so this file and
 // globals.css didn't need to exist until now.
 const config: Config = {
-  content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
+  content: ["./src/app/**/*.{ts,tsx}", "./src/components/**/*.{ts,tsx}"],
   theme: {
     extend: {},
   },
