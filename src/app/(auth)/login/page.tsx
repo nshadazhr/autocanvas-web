@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useState } from 'react';
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { login } from "../../api/auth/auth.api";
 import axios from "axios";
+import { AuthContext } from '@/src/providers/AuthProvider';
+import { useRouter } from 'next/navigation';
 
 const STATS = [
   { emoji: "⚡", title: "Easy to Use", subtitle: "No technical skills" },
@@ -28,34 +27,29 @@ const STICKY_NOTES = [
 // packages/auth/src/config.ts's Credentials-only provider list) once
 // "Email Login" is pressed.
 export default function LoginPage() {
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
-
+  const { signIn } = useContext(AuthContext);
+  const router = useRouter();
   const [view, setView] = useState<"landing" | "email">("landing");
   const [notice, setNotice] = useState<string | null>(null);
-
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   function showUnavailableNotice(feature: string) {
     setNotice(`${feature} isn't wired up in this preview build — use Email Login below instead.`);
   }
 
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-		e.preventDefault();
 
+		e.preventDefault();
 		setLoading(true);
 		setError('');
 
 		try {
-			const response = await login({
-				email,
-				password
-			});
-      
+			await signIn({ email, password });
+			
+			router.replace('/dashboard');
 		} catch (error) {
 			if (axios.isAxiosError(error)) {
 				setError(error.response?.data?.message || 'Login failed');
@@ -265,7 +259,7 @@ export default function LoginPage() {
 
 								<button
 									type='submit'
-									disabled={submitting}
+									disabled={loading}
 									className='mt-2 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
 								>
 									{loading ? 'Logging in...' : 'Log in'}

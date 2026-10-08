@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import "./globals.css";
+import AuthProvider from "../providers/AuthProvider";
 
 export const metadata = {
   title: "AutoCanvas — Create. Animate. Share.",
@@ -8,12 +9,14 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      {/* Tailwind is wired up as of Chunk 7 (Audio Studio) — earlier pages
+		<html lang='en'>
+			{/* Tailwind is wired up as of Chunk 7 (Audio Studio) — earlier pages
          (login/register/dashboard) still use their original inline styles
          and are left as-is; only Audio Studio's new pages use Tailwind
          classes for now. */}
-      <body className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">{children}</body>
-    </html>
-  );
+			<body className='min-h-screen bg-slate-50 font-sans text-slate-900 antialiased'>
+				<AuthProvider>{children}</AuthProvider>
+			</body>
+		</html>
+	);
 }
