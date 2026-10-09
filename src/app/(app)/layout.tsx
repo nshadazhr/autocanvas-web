@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
-import { getCreditAccount, getCurrentPlanKey, DUMMY_PLANS } from "../../lib/dummy-data";
-import { Sidebar } from "../../components/sidebar";
-import { AppTopbar } from "../../components/app-topbar";
+import type { ReactNode } from 'react';
+import { getCreditAccount, getCurrentPlanKey, DUMMY_PLANS } from '../../lib/dummy-data';
+import { Sidebar } from '../../components/sidebar';
+import { AppTopbar } from '../../components/app-topbar';
+import ProtectedRoute from '../../components/auth/ProtectedRoute';
 
 /**
  * Shared shell for every signed-in page (dashboard, audio studio, billing,
@@ -15,24 +16,22 @@ import { AppTopbar } from "../../components/app-topbar";
  * instead of `prisma.creditAccount.findUnique` — see that file.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  // const user = session!.user;
+	// const user = session!.user;
 
-  const creditAccount = getCreditAccount();
-  const planKey = getCurrentPlanKey();
-  const plan = DUMMY_PLANS.find((p) => p.key === planKey);
-  const planLabel = plan ? `${plan.name} Plan` : "Free Plan";
+	const creditAccount = getCreditAccount();
+	const planKey = getCurrentPlanKey();
+	const plan = DUMMY_PLANS.find(p => p.key === planKey);
+	const planLabel = plan ? `${plan.name} Plan` : 'Free Plan';
 
-  return (
-    <div className="flex min-h-screen bg-[#05050c]">
-      <Sidebar />
-      <div className="flex min-h-screen flex-1 flex-col">
-        <AppTopbar
-          userName={"Account"}
-          planLabel={planLabel}
-          creditBalance={creditAccount.balance}
-        />
-        <main className="flex-1 px-6 py-8">{children}</main>
-      </div>
-    </div>
-  );
+	return (
+		<ProtectedRoute>
+			<div className='flex min-h-screen bg-[#05050c]'>
+				<Sidebar />
+				<div className='flex min-h-screen flex-1 flex-col'>
+					<AppTopbar userName={'Account'} planLabel={planLabel} creditBalance={creditAccount.balance} />
+					<main className='flex-1 px-6 py-8'>{children}</main>
+				</div>
+			</div>
+		</ProtectedRoute>
+	);
 }
