@@ -1,0 +1,76 @@
+export const localStrings = {
+	home: {
+		heroBadge: '⚡ 5x Faster Content Creation',
+		heroTitle: 'Turn Your Ideas Into',
+		heroHighlightedTitle: 'Amazing Stories',
+		heroDescription:
+			'All-in-one AI platform to create cartoon stories, generate characters, backgrounds, voices, thumbnails and videos — built for YouTubers, creators and storytellers.',
+		launchButton: '🚀 Launch App →',
+		signupButton: 'Sign up for free',
+		channelsHeading: '1500+ channels monetized with AutoCanvas',
+
+		brandFirst: 'Auto',
+		brandSecond: 'Canvas',
+		brandTagline: 'Create. Animate. Share.',
+
+		navTools: 'Tools',
+		navFeatures: 'Features',
+		navTemplates: 'Templates',
+		navPricing: 'Pricing',
+		navFaqs: 'FAQs',
+
+		checklistNoTechnicalSkills: 'No technical skills required',
+		checklistCreateInMinutes: 'Create in minutes',
+		checklistCreatorsCount: 'Used by 1,500+ creators',
+
+		floatingCharacters: 'Characters',
+		floatingScripts: 'Scripts',
+		floatingBackgrounds: 'Backgrounds',
+		floatingThumbnails: 'Thumbnails',
+		floatingVoices: 'Voices',
+		floatingVideos: 'Videos',
+
+		toonKahaniName: 'Toon Kahani',
+		toonKahaniViews: '12M Views',
+		moralStoriesTvName: 'Moral Stories TV',
+		moralStoriesTvViews: '8M Views',
+		villageTalesName: 'Village Tales',
+		villageTalesViews: '6M Views',
+		kidsFunName: 'Kids Fun (Gen)',
+		kidsFunViews: '5M Views',
+		storyWorldName: 'Story World',
+		storyWorldViews: '4M Views',
+		desiKahaniName: 'Desi Kahani',
+		desiKahaniViews: '3M Views',
+
+		scriptStudioTitle: 'Script Studio',
+		scriptStudioDescription: 'Generate engaging story scripts',
+		imageStudioTitle: 'Image Studio',
+		imageStudioDescription: 'Create characters & backgrounds',
+		audioStudioTitle: 'Audio Studio',
+		audioStudioDescription: 'Realistic AI voices in multiple languages',
+		thumbnailStudioTitle: 'Thumbnail Studio',
+		thumbnailStudioDescription: 'Eye-catching thumbnails with AI',
+		videoStudioTitle: 'Video Studio',
+		videoStudioDescription: 'Create animated videos easily',
+		templatesTitle: 'Templates',
+		templatesDescription: 'Ready-to-use assets & templates',
+		projectsTitle: 'Projects',
+		projectsDescription: 'Organize all your creations',
+		moreToolsTitle: 'More Tools',
+		moreToolsDescription: 'Everything you need in one place',
+
+		creatorsWorldwideLabel: 'Creators Worldwide',
+		creatorsWorldwideValue: '1,500+',
+		videosCreatedLabel: 'Videos Created',
+		videosCreatedValue: '10M+',
+		creatorRatingLabel: 'Creator Rating',
+		creatorRatingValue: '4.9/5',
+		supportedLanguagesLabel: 'Hindi, English & More',
+		supportedLanguagesValue: 'Multiple Languages'
+	},
+
+	dashboard: {},
+	auth: {},
+	common: {}
+} as const;
