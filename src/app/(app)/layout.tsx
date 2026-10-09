@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { auth } from "@platform/auth";
 import { getCreditAccount, getCurrentPlanKey, DUMMY_PLANS } from "../../lib/dummy-data";
 import { Sidebar } from "../../components/sidebar";
 import { AppTopbar } from "../../components/app-topbar";
@@ -16,7 +15,6 @@ import { AppTopbar } from "../../components/app-topbar";
  * instead of `prisma.creditAccount.findUnique` — see that file.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
-  const session = await auth();
   // const user = session!.user;
 
   const creditAccount = getCreditAccount();

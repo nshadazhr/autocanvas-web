@@ -46,7 +46,7 @@ export default async function AudioStudioPage() {
   const monthlyCredits = plan?.monthlyCredits ?? creditAccount.balance;
   const creditsUsed = Math.max(0, monthlyCredits - creditAccount.balance);
   const percentUsed = monthlyCredits > 0 ? Math.min(100, Math.round((creditsUsed / monthlyCredits) * 100)) : 0;
-  const totalScenes = projects.reduce((sum, p) => sum + (p.audioProject?._count.scenes ?? 0), 0);
+  // const totalScenes = projects.reduce((sum, p) => sum + (p.audioProject?._count.scenes ?? 0), 0);
 
   const ringStyle = {
     background: `conic-gradient(#818cf8 ${percentUsed * 3.6}deg, rgba(255,255,255,0.08) 0deg)`,
@@ -61,7 +61,7 @@ export default async function AudioStudioPage() {
         {/* Recent Projects */}
         <div>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Recent Projects</h2>
-          {projects.length === 0 ? (
+          {projects?.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 text-center">
               <p className="text-sm text-slate-400">No projects yet — create your first one below.</p>
             </div>
@@ -77,7 +77,7 @@ export default async function AudioStudioPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {projects.map((project) => {
+                  {projects?.map((project) => {
                     const sceneCount = project.audioProject?._count.scenes ?? 0;
                     return (
                       <tr key={project.id} className="transition-colors hover:bg-white/[0.02]">
@@ -131,11 +131,11 @@ export default async function AudioStudioPage() {
           </p>
           <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/10 pt-4 text-center">
             <div>
-              <p className="text-lg font-semibold text-white">{projects.length}</p>
+              <p className="text-lg font-semibold text-white">{projects?.length}</p>
               <p className="text-xs text-slate-500">Projects</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-white">{totalScenes}</p>
+              {/* <p className="text-lg font-semibold text-white">{totalScenes}</p> */}
               <p className="text-xs text-slate-500">Scenes</p>
             </div>
           </div>

@@ -1,5 +1,3 @@
-import { auth } from "@platform/auth";
-import { signBridgeToken, type PlatformRole } from "@platform/auth/bridge-token";
 import { VOICE_CATALOG, creditsForCharacters, type SceneFieldUpdate } from "./dummy-data";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -75,16 +73,9 @@ export interface ImportScenesResult {
 // HTTP plumbing
 // ─────────────────────────────────────────────────────────────────────────
 
-async function mintBridgeToken(): Promise<string> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    throw new Error("Not signed in.");
-  }
-  return signBridgeToken({
-    sub: session.user.id,
-    role: (session.user.role as PlatformRole | undefined) ?? "USER",
-    email: session.user.email,
-  });
+async function mintBridgeToken(): Promise<any> {
+  
+ 
 }
 
 /** NestJS's default exception filter returns `{ statusCode, message, error }`,
@@ -99,30 +90,30 @@ function extractErrorMessage(body: unknown, status: number): string {
   return `Backend request failed (${status}).`;
 }
 
-async function backendFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const backendUrl = process.env.BACKEND_URL;
-  if (!backendUrl) {
-    throw new Error("BACKEND_URL is not set — Audio Studio can't reach the backend service.");
-  }
-  const token = await mintBridgeToken();
+async function backendFetch<T>(path: string, init: RequestInit = {}): Promise<any> {
+  // const backendUrl = process.env.BACKEND_URL;
+  // if (!backendUrl) {
+  //   throw new Error("BACKEND_URL is not set — Audio Studio can't reach the backend service.");
+  // }
+  // const token = await mintBridgeToken();
 
-  const res = await fetch(`${backendUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...init.headers,
-    },
-    cache: "no-store",
-  });
+  // const res = await fetch(`${backendUrl}${path}`, {
+  //   ...init,
+  //   headers: {
+  //     "Content-Type": "application/json",
+  //     Authorization: `Bearer ${token}`,
+  //     ...init.headers,
+  //   },
+  //   cache: "no-store",
+  // });
 
-  const raw = await res.text();
-  const body = raw ? JSON.parse(raw) : undefined;
+  // const raw = await res.text();
+  // const body = raw ? JSON.parse(raw) : undefined;
 
-  if (!res.ok) {
-    throw new Error(extractErrorMessage(body, res.status));
-  }
-  return body as T;
+  // if (!res.ok) {
+  //   throw new Error(extractErrorMessage(body, res.status));
+  // }
+  // return body as T;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
