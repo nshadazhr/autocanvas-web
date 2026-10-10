@@ -43,6 +43,7 @@ api.interceptors.response.use(
 		const isAuthRequest =
 			originalRequest?.url?.includes('/auth/login') ||
 			originalRequest?.url?.includes('/auth/register') ||
+			originalRequest?.url?.includes('/auth/verify-email-otp') ||
 			originalRequest?.url?.includes('/auth/refresh');
 
 		if (error.response?.status === 401 && !originalRequest?._retry && !isAuthRequest) {

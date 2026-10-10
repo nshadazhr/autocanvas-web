@@ -65,13 +65,12 @@ export default function RegisterPage() {
 		setError(null);
 
 		try {
-			await signUp({
+			let response = await signUp({
 				name: name.trim(),
 				email: email.trim(),
 				password
 			});
-
-			router.replace('/dashboard');
+			router.push(`/verify-email?data=${encodeURIComponent(JSON.stringify(response))}`);
 		} catch (error) {
 			if (axios.isAxiosError(error)) {
 				const message = error.response?.data?.message;

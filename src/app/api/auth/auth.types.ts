@@ -4,11 +4,22 @@ export interface RegisterRequest {
 	password: string;
 }
 export interface RegisterResponse {
-	id: number;
+	success: boolean;
+	message: string;
 	email: string;
-	name: string;
-	created_at: string;
-	updated_at: string;
+	emailId?: string;
+	expiresIn: number;
+}
+
+export interface VerifyOtpRequest {
+	email: string;
+	otp: string;
+}
+
+export interface VerifyOtpResponse {
+	success: boolean;
+	message: string;
+	user: User;
 	access_token: string;
 }
 export interface LoginRequest {
@@ -29,4 +40,15 @@ export interface LoginResponse {
 
 export interface RefreshTokenResponse {
 	access_token: string;
+}
+
+export interface ResendOtpRequest {
+	email: string;
+}
+
+export interface ResendOtpResponse {
+	success: boolean;
+	message: string;
+	email: string;
+	expiresIn: number;
 }

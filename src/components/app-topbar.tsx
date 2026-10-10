@@ -4,16 +4,10 @@ import { useContext } from 'react';
 import { AuthContext } from '../providers/AuthProvider';
 import { LogoutButton } from './auth/LogoutButton';
 
-export function AppTopbar({
-	userName,
-	planLabel,
-	creditBalance
-}: {
-	userName: string;
-	planLabel: string;
-	creditBalance: number;
-}) {
-
+export function AppTopbar({ planLabel, creditBalance }: { planLabel: string; creditBalance: number }) {
+	const { user } = useContext(AuthContext);
+	const userName = user?.name ?? 'My Account';	
+	
 	return (
 		<header className='flex h-16 items-center gap-4 border-b border-white/10 bg-[#05050c] px-6'>
 			<div className='flex flex-1 items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400'>
@@ -38,6 +32,7 @@ export function AppTopbar({
 			<span className='flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-sm'>
 				🔔
 			</span>
+
 			<LogoutButton />
 		</header>
 	);

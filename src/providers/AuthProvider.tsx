@@ -3,15 +3,23 @@
 import { createContext, useEffect, useState } from 'react';
 import { refreshAccessToken } from '../app/api/auth/auth-refresh';
 import { setAccessToken, clearAccessToken } from '../app/api/auth/auth-token';
-import { getProfile, login, logout, register } from '../app/api/auth/auth.api';
-import type { LoginRequest, RegisterRequest, User } from '../app/api/auth/auth.types';
+import { getProfile, login, logout, register, verifyEmailOtp } from '../app/api/auth/auth.api';
+
+import type {
+	LoginRequest,
+	RegisterRequest,
+	RegisterResponse,
+	VerifyOtpRequest,
+	User
+} from '../app/api/auth/auth.types';
 
 type AuthContextType = {
 	initialized: boolean;
 	isAuthenticated: boolean;
 	user: User | null;
 	signIn: (data: LoginRequest) => Promise<void>;
-	signUp: (data: RegisterRequest) => Promise<void>;
+	signUp: (data: RegisterRequest) => Promise<RegisterResponse>;
+	verifyRegistrationOtp: (data: VerifyOtpRequest) => Promise<void>;
 	signOut: () => Promise<void>;
 };
 
@@ -27,6 +35,9 @@ export const AuthContext = createContext<AuthContextType>({
 	},
 	signUp: async () => {
 		throw new Error('AuthProvider is not initialized');
+	},
+	verifyRegistrationOtp: async () => {
+		throw new Error('AuthProvider is not initialized');
 	}
 });
 
@@ -40,25 +51,25 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 	const signUp = async (data: RegisterRequest) => {
 		const response = await register(data);
 
-		setAccessToken(response.access_token);
+		// Registration only sends an OTP. No user session exists until login.
+		return response;
+	};
 
-		setUser({
-			id: response.id,
-			name: response.name,
-			email: response.email
-		});
-
+	const establishSession = (user: User, accessToken: string) => {
+		setAccessToken(accessToken);
+		setUser(user);
 		setIsAuthenticated(true);
 		setInitialized(true);
 	};
 
 	const signIn = async (data: LoginRequest) => {
 		const response = await login(data);
+		establishSession(response.user, response.access_token);
+	};
 
-		setAccessToken(response.access_token);
-		setUser(response.user);
-		setIsAuthenticated(true);
-		setInitialized(true);
+	const verifyRegistrationOtp = async (data: VerifyOtpRequest) => {
+		const response = await verifyEmailOtp(data);
+		establishSession(response.user, response.access_token);
 	};
 
 	const signOut = async () => {
@@ -70,7 +81,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 			setIsAuthenticated(false);
 		}
 	};
-
 
 	useEffect(() => {
 		const restoreSession = async () => {
@@ -111,7 +121,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 				user,
 				signIn,
 				signOut,
-				signUp
+				signUp,
+				verifyRegistrationOtp
 			}}
 		>
 			{children}
