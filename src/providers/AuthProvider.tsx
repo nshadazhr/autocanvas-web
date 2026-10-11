@@ -3,7 +3,7 @@
 import { createContext, useEffect, useState } from 'react';
 import { refreshAccessToken } from '../app/api/auth/auth-refresh';
 import { setAccessToken, clearAccessToken } from '../app/api/auth/auth-token';
-import { getProfile, login, logout, register, verifyEmailOtp } from '../app/api/auth/auth.api';
+import { getProfile, login, logout, register, verifyEmailOtp, googleLogin } from '../app/api/auth/auth.api';
 
 import type {
 	LoginRequest,
@@ -21,6 +21,7 @@ type AuthContextType = {
 	signUp: (data: RegisterRequest) => Promise<RegisterResponse>;
 	verifyRegistrationOtp: (data: VerifyOtpRequest) => Promise<void>;
 	signOut: () => Promise<void>;
+	signInWithGoogle: (idToken: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType>({
@@ -37,6 +38,9 @@ export const AuthContext = createContext<AuthContextType>({
 		throw new Error('AuthProvider is not initialized');
 	},
 	verifyRegistrationOtp: async () => {
+		throw new Error('AuthProvider is not initialized');
+	},
+	signInWithGoogle: async () => {
 		throw new Error('AuthProvider is not initialized');
 	}
 });
@@ -62,6 +66,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 		setInitialized(true);
 	};
 
+	const signInWithGoogle = async (idToken: string) => {
+		const response = await googleLogin({ idToken });
+	  
+		establishSession(response.user, response.access_token);
+	  };
+	  
 	const signIn = async (data: LoginRequest) => {
 		const response = await login(data);
 		establishSession(response.user, response.access_token);
@@ -120,6 +130,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 				isAuthenticated,
 				user,
 				signIn,
+				signInWithGoogle,
 				signOut,
 				signUp,
 				verifyRegistrationOtp

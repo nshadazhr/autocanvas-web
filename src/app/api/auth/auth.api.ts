@@ -1,6 +1,7 @@
 import api from '../axios';
 
 import {
+	GoogleSignInRequest,
 	LoginRequest,
 	LoginResponse,
 	RegisterRequest,
@@ -21,8 +22,15 @@ export const resendEmailOtp = async (data: ResendOtpRequest): Promise<ResendOtpR
 
 	return response.data;
 };
+
 export const login = async (loginData: LoginRequest): Promise<LoginResponse> => {
 	const response = await api.post<LoginResponse>('/auth/login', loginData);
+
+	return response.data;
+};
+
+export const googleLogin = async (data: GoogleSignInRequest): Promise<LoginResponse> => {
+	const response = await api.post<LoginResponse>('/auth/google', data);
 
 	return response.data;
 };

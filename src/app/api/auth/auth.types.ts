@@ -27,6 +27,14 @@ export interface LoginRequest {
 	password: string;
 }
 
+export interface GoogleSignInRequest {
+	idToken: string;
+}
+
+export interface GoogleSignInResponse {
+	idToken: string;
+}
+
 export interface User {
 	id: number;
 	name: string;

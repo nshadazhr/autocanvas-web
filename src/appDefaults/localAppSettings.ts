@@ -3,7 +3,13 @@ export const localAppSettings = {
 		enableAudioStudio: true,
 		enableVideoStudio: false,
 		enableImageStudio: true,
-		enableRegistration: true
+		enableRegistration: true,
+
+		// Authentication
+		enableGoogleLogin: true,
+		enableEmailLogin: true,
+		enableFacebookLogin: false,
+		enablePhoneOtpLogin: false
 	},
 
 	home: {
