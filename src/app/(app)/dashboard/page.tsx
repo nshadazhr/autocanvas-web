@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { auth } from "@platform/auth";
 import {
   getCreditAccount,
   getCurrentPlanKey,
@@ -50,8 +49,6 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) return null; // middleware already redirects; this satisfies TS
 
   const creditAccount = getCreditAccount();
   const planKey = getCurrentPlanKey();
@@ -90,7 +87,7 @@ export default async function DashboardPage() {
             </span>
           </h1>
           <p className="mt-3 max-w-md text-sm text-slate-400">
-            Welcome back, {session.user.name ?? session.user.email}. Pick up where you left off or start something new.
+            Welcome back, usernamedummy. Pick up where you left off or start something new.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link

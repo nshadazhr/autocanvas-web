@@ -1,23 +1,24 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { login } from "../../api/auth/auth.api";
-import axios from "axios";
+import { useContext, useState } from 'react';
+import Link from 'next/link';
+import axios from 'axios';
+import { AuthContext } from '@/src/providers/AuthProvider';
+import { useRouter } from 'next/navigation';
+import GoogleSignInButton from '@/src/components/auth/GoogleSignInButton';
+import { localAppSettings } from '@/src/appDefaults';
 
 const STATS = [
-  { emoji: "⚡", title: "Easy to Use", subtitle: "No technical skills" },
-  { emoji: "👥", title: "1500+ Creators", subtitle: "Worldwide" },
-  { emoji: "▶️", title: "Create Faster", subtitle: "With AI" },
-  { emoji: "📈", title: "Grow Your Channel", subtitle: "Faster" },
+	{ emoji: '⚡', title: 'Easy to Use', subtitle: 'No technical skills' },
+	{ emoji: '👥', title: '1500+ Creators', subtitle: 'Worldwide' },
+	{ emoji: '▶️', title: 'Create Faster', subtitle: 'With AI' },
+	{ emoji: '📈', title: 'Grow Your Channel', subtitle: 'Faster' }
 ];
 
 const STICKY_NOTES = [
-  { text: "Big Ideas", className: "left-4 top-6 -rotate-6 bg-amber-300" },
-  { text: "Better Stories", className: "right-6 top-14 rotate-3 bg-sky-300" },
-  { text: "Bigger Audience", className: "left-10 bottom-8 rotate-2 bg-pink-300" },
+	{ text: 'Big Ideas', className: 'left-4 top-6 -rotate-6 bg-amber-300' },
+	{ text: 'Better Stories', className: 'right-6 top-14 rotate-3 bg-sky-300' },
+	{ text: 'Bigger Audience', className: 'left-10 bottom-8 rotate-2 bg-pink-300' }
 ];
 
 // Split-screen auth layout matching the AutoCanvas reference design: a
@@ -28,34 +29,45 @@ const STICKY_NOTES = [
 // packages/auth/src/config.ts's Credentials-only provider list) once
 // "Email Login" is pressed.
 export default function LoginPage() {
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+	const { signIn, signInWithGoogle } = useContext(AuthContext);
+	const router = useRouter();
+	const [view, setView] = useState<'landing' | 'email'>('landing');
+	const [notice, setNotice] = useState<string | null>(null);
+	const [phone, setPhone] = useState('');
+	const [email, setEmail] = useState('');
+	const [password, setPassword] = useState('');
+	const [error, setError] = useState<string | null>(null);
+	const [loading, setLoading] = useState(false);
+	function showUnavailableNotice(feature: string) {
+		setNotice(`${feature} isn't wired up in this preview build — use Email Login below instead.`);
+	}
+	const handleGoogleSuccess = async (idToken: string) => {
+		setLoading(true);
+		setError(null);
 
-  const [view, setView] = useState<"landing" | "email">("landing");
-  const [notice, setNotice] = useState<string | null>(null);
+		try {
+			await signInWithGoogle(idToken);
 
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [loading, setLoading] = useState(false);
-  function showUnavailableNotice(feature: string) {
-    setNotice(`${feature} isn't wired up in this preview build — use Email Login below instead.`);
-  }
+			router.replace('/dashboard');
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				setError(error.response?.data?.message || 'Google login failed');
+			} else {
+				setError('Something went wrong');
+			}
+		} finally {
+			setLoading(false);
+		}
+	};
 
-  const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+	const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
-
 		setLoading(true);
 		setError('');
 
 		try {
-			const response = await login({
-				email,
-				password
-			});
-      
+			await signIn({ email, password });
+			router.replace('/dashboard');
 		} catch (error) {
 			if (axios.isAxiosError(error)) {
 				setError(error.response?.data?.message || 'Login failed');
@@ -67,7 +79,7 @@ export default function LoginPage() {
 		}
 	};
 
-  return (
+	return (
 		<div className='flex min-h-screen bg-[#05050c] text-white'>
 			{/* Left — marketing / illustration panel */}
 			<div className='relative hidden w-1/2 flex-col justify-between overflow-hidden p-10 lg:flex'>
@@ -110,8 +122,8 @@ export default function LoginPage() {
 						</span>
 					</h2>
 					<p className='max-w-md text-sm text-slate-400'>
-						All-in-one AI platform to create cartoon stories, generate characters, backgrounds, voices, thumbnails and
-						videos.
+						All-in-one AI platform to create cartoon stories, generate characters, backgrounds, voices,
+						thumbnails and videos.
 					</p>
 					<div className='grid grid-cols-2 gap-4 pt-2'>
 						{STATS.map(stat => (
@@ -147,73 +159,103 @@ export default function LoginPage() {
 							</p>
 
 							<div className='mt-8'>
-								<label className='text-xs font-semibold uppercase tracking-wide text-slate-400'>Phone Number</label>
-								<div className='mt-2 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3'>
-									<span className='text-slate-400'>📞</span>
-									<span className='text-sm text-slate-300'>+91</span>
-									<span className='h-4 w-px bg-white/15' />
-									<input
-										type='tel'
-										placeholder='Enter your phone number'
-										value={phone}
-										onChange={e => setPhone(e.target.value)}
-										className='w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none'
-									/>
+								{localAppSettings.features.enablePhoneOtpLogin && (
+									<>
+										<label className='text-xs font-semibold uppercase tracking-wide text-slate-400'>
+											Phone Number
+										</label>
+										<div className='mt-2 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-3'>
+											<span className='text-slate-400'>📞</span>
+											<span className='text-sm text-slate-300'>+91</span>
+											<span className='h-4 w-px bg-white/15' />
+											<input
+												type='tel'
+												placeholder='Enter your phone number'
+												value={phone}
+												onChange={e => setPhone(e.target.value)}
+												className='w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none'
+											/>
+										</div>
+
+										<button
+											type='button'
+											onClick={() => showUnavailableNotice('Phone OTP login')}
+											className='mt-4 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-opacity hover:opacity-90'
+										>
+											Get OTP
+										</button>
+									</>
+								)}
+
+								{localAppSettings.features.enablePhoneOtpLogin &&
+									(localAppSettings.features.enableGoogleLogin ||
+										localAppSettings.features.enableFacebookLogin) && (
+										<div className='my-6 flex items-center gap-3'>
+											<span className='h-px flex-1 bg-white/10' />
+											<span className='text-xs font-medium text-slate-500'>OR CONTINUE WITH</span>
+											<span className='h-px flex-1 bg-white/10' />
+										</div>
+									)}
+
+								<div className='flex w-full flex-col gap-3'>
+									{localAppSettings.features.enableGoogleLogin && (
+										<div className='w-full'>
+											<GoogleSignInButton onSuccess={handleGoogleSuccess} />
+										</div>
+									)}
+									{localAppSettings.features.enableGoogleLogin &&
+										localAppSettings.features.enableEmailLogin && (
+											<div className='flex items-center gap-3'>
+												<span className='h-px flex-1 bg-white/10' />
+												<span className='text-xs font-medium text-slate-500'>OR</span>
+												<span className='h-px flex-1 bg-white/10' />
+											</div>
+										)}
+
+									{localAppSettings.features.enableFacebookLogin && (
+										<button
+											type='button'
+											onClick={() => showUnavailableNotice('Facebook sign-in')}
+											className='flex items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10'
+										>
+											<span>🔷</span> Facebook
+										</button>
+									)}
 								</div>
 
-								<button
-									type='button'
-									onClick={() => showUnavailableNotice('Phone OTP login')}
-									className='mt-4 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-opacity hover:opacity-90'
-								>
-									Get OTP
-								</button>
+								{error && <p className='mt-3 text-sm text-red-400'>{error}</p>}
 
-								<div className='my-6 flex items-center gap-3'>
-									<span className='h-px flex-1 bg-white/10' />
-									<span className='text-xs font-medium text-slate-500'>OR CONTINUE WITH</span>
-									<span className='h-px flex-1 bg-white/10' />
-								</div>
-
-								<div className='grid grid-cols-2 gap-3'>
+								{localAppSettings.features.enableEmailLogin && (
 									<button
 										type='button'
-										onClick={() => showUnavailableNotice('Google sign-in')}
-										className='flex items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10'
+										onClick={() => {
+											setNotice(null);
+											setError(null);
+											setView('email');
+										}}
+										className='my-3 flex w-full self-stretch items-center justify-center gap-2 rounded-xl border border-indigo-400/50 bg-indigo-500/10 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/10 transition-all duration-200 hover:border-indigo-400 hover:bg-indigo-500/20 hover:shadow-indigo-500/20'
 									>
-										<span>🔵</span> Google
+										✉️ Email Login
 									</button>
-									<button
-										type='button'
-										onClick={() => showUnavailableNotice('Facebook sign-in')}
-										className='flex items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10'
-									>
-										<span>🔷</span> Facebook
-									</button>
-								</div>
-
-								<button
-									type='button'
-									onClick={() => {
-										setNotice(null);
-										setView('email');
-									}}
-									className='mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10'
-								>
-									✉️ Email Login
-								</button>
+								)}
 
 								{notice && <p className='mt-4 text-center text-xs text-amber-400'>{notice}</p>}
 
 								<p className='mt-8 text-center text-xs text-slate-500'>
 									By signing in, you agree to our{' '}
-									<a href='#' className='text-slate-300 underline underline-offset-2'>
-										Terms of Service
-									</a>{' '}
+									<Link
+										href='/terms-and-conditions'
+										className='text-slate-300 underline underline-offset-2'
+									>
+										Terms & Conditions
+									</Link>
 									and{' '}
-									<a href='#' className='text-slate-300 underline underline-offset-2'>
+									<Link
+										href='/privacy-policy'
+										className='text-slate-300 underline underline-offset-2'
+									>
 										Privacy Policy
-									</a>
+									</Link>
 									.
 								</p>
 							</div>
@@ -233,7 +275,9 @@ export default function LoginPage() {
 
 							<form onSubmit={handleEmailSubmit} className='mt-8 flex flex-col gap-4'>
 								<div>
-									<label className='text-xs font-semibold uppercase tracking-wide text-slate-400'>Email</label>
+									<label className='text-xs font-semibold uppercase tracking-wide text-slate-400'>
+										Email
+									</label>
 									<input
 										type='email'
 										placeholder='you@example.com'
@@ -245,8 +289,13 @@ export default function LoginPage() {
 								</div>
 								<div>
 									<div className='flex items-center justify-between'>
-										<label className='text-xs font-semibold uppercase tracking-wide text-slate-400'>Password</label>
-										<Link href='/forgot-password' className='text-xs font-medium text-indigo-300 hover:text-indigo-200'>
+										<label className='text-xs font-semibold uppercase tracking-wide text-slate-400'>
+											Password
+										</label>
+										<Link
+											href='/forgot-password'
+											className='text-xs font-medium text-indigo-300 hover:text-indigo-200'
+										>
 											Forgot password?
 										</Link>
 									</div>
@@ -261,11 +310,15 @@ export default function LoginPage() {
 									/>
 								</div>
 
-								{error && <p className='text-sm text-red-400'>{error}</p>}
+								{error && (
+									<div className='space-y-2'>
+										<p className='text-sm text-red-400'>{error}</p>
+									</div>
+								)}
 
 								<button
 									type='submit'
-									disabled={submitting}
+									disabled={loading}
 									className='mt-2 w-full rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
 								>
 									{loading ? 'Logging in...' : 'Log in'}
