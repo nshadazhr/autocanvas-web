@@ -28,7 +28,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 			<div className='flex min-h-screen bg-[#05050c]'>
 				<Sidebar />
 				<div className='flex min-h-screen flex-1 flex-col'>
-					<AppTopbar userName={'Account'} planLabel={planLabel} creditBalance={creditAccount.balance} />
+					<AppTopbar planLabel={planLabel} creditBalance={creditAccount.balance} />
 					<main className='flex-1 px-6 py-8'>{children}</main>
 				</div>
 			</div>
