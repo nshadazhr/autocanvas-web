@@ -29,7 +29,11 @@ export function AudioStoriesList({ stories, loading, error }: AudioStoriesListPr
 		return stories.filter(story => {
 			const matchesSearch = story.title.toLowerCase().includes(query);
 
-			const matchesStatus = statusFilter === 'ALL' || story.analysisStatus === statusFilter;
+			const matchesStatus =
+				statusFilter === 'ALL' ||
+				(statusFilter === 'SINGLE'
+					? story.status.startsWith('SINGLE_')
+					: !story.status.startsWith('SINGLE_') && story.analysisStatus === statusFilter);
 
 			return matchesSearch && matchesStatus;
 		});
@@ -65,6 +69,7 @@ export function AudioStoriesList({ stories, loading, error }: AudioStoriesListPr
 					className='sm:w-48'
 				>
 					<option value='ALL'>All Status</option>
+					<option value='SINGLE'>One Voice</option>
 					<option value='PENDING'>Not Analyzed</option>
 					<option value='PROCESSING'>Analyzing</option>
 					<option value='COMPLETED'>Analyzed</option>
@@ -95,8 +100,9 @@ export function AudioStoriesList({ stories, loading, error }: AudioStoriesListPr
 									story.analysisStatus === 'COMPLETED' &&
 									story.analysisResult?.validation.valid === true;
 
-								const statusLabel =
-									story.analysisStatus === 'COMPLETED' && !analyzed
+								const statusLabel = story.status.startsWith('SINGLE_')
+									? `One Voice · ${story.status.slice(7).toLowerCase()}`
+									: story.analysisStatus === 'COMPLETED' && !analyzed
 										? 'Invalid Analysis'
 										: (STATUS_LABELS[story.analysisStatus] ?? story.analysisStatus);
 
@@ -113,15 +119,21 @@ export function AudioStoriesList({ stories, loading, error }: AudioStoriesListPr
 										</td>
 
 										<td className='px-5 py-4 text-slate-400'>
-											{analyzed ? story.analysisResult?.scenes.length : '—'}
+											{story.status.startsWith('SINGLE_')
+												? 'One Voice'
+												: analyzed
+													? story.analysisResult?.scenes.length
+													: '—'}
 										</td>
 
 										<td className='px-5 py-4'>
 											<StatusBadge
 												status={
-													story.analysisStatus === 'COMPLETED' && !analyzed
-														? 'INVALID_ANALYSIS'
-														: story.analysisStatus
+													story.status.startsWith('SINGLE_')
+														? story.status.slice(7)
+														: story.analysisStatus === 'COMPLETED' && !analyzed
+															? 'INVALID_ANALYSIS'
+															: story.analysisStatus
 												}
 												variant='dark'
 												label={statusLabel}

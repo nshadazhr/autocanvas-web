@@ -8,6 +8,7 @@ import { analyzeAudioStory, getAudioStoryById, updateAudioStory } from '../../..
 
 import type { AudioStory } from '../../../../api/audio-studio/audio-stories.types';
 import { ScenesPanel } from './scenes-panel';
+import { SingleVoiceStudio } from '../../single-voice-studio';
 import { AudioGenerationPanel } from '../../audio-generation/audio-generation-panel';
 type EditorTab = 'script' | 'scenes' | 'generate';
 
@@ -171,6 +172,18 @@ export default function StoryDetailsPage() {
 
 	if (error || !story) {
 		return <p className='text-red-400'>{error || 'Story not found.'}</p>;
+	}
+
+	if (story?.status.startsWith('SINGLE_')) {
+		return (
+			<div className='mx-auto w-full max-w-[1800px] space-y-5'>
+				<Link href='/audio' className='text-sm text-indigo-300'>
+					← Back to Audio Studio
+				</Link>
+				<h1 className='text-2xl font-bold text-white'>{story.title}</h1>
+				<SingleVoiceStudio storyId={storyId} />
+			</div>
+		);
 	}
 
 	const analysisCompleted = story.analysisStatus === 'COMPLETED' && story.analysisResult?.validation.valid === true;
