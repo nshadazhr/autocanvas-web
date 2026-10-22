@@ -56,10 +56,11 @@ export interface UpdateAudioStoryRequest {
 export interface Voice {
 	id: number;
 	name: string;
+	displayName: string | null;
+	provider: string;
+	providerVoiceId: string;
+	model: string;
 	gender: string | null;
-	ageCategory: string | null;
 	description: string | null;
-	style: string | null;
-	languages: string[];
 	previewUrl: string | null;
 }

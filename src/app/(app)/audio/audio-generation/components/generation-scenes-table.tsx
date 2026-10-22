@@ -93,9 +93,20 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 			}));
 
 	const getDisplayStatus = (sceneId: number, item: (typeof items)[number] | undefined, hasAudio: boolean) => {
-		if (sceneGeneration?.sceneId === sceneId) return sceneGeneration.status;
-		if (item) return item.status;
-		return hasAudio ? 'COMPLETED' : '—';
+		if (
+			sceneGeneration?.sceneId === sceneId &&
+			['PENDING', 'PROCESSING', 'WAITING'].includes(sceneGeneration.status)
+		) {
+			return sceneGeneration.status;
+		}
+
+		if (hasAudio) return 'COMPLETED';
+
+		if (sceneGeneration?.sceneId === sceneId) {
+			return sceneGeneration.status;
+		}
+
+		return item?.status ?? '—';
 	};
 
 	const filteredItems = rows.filter(({ item, sceneId, sceneNumber, sceneHistory }) => {
@@ -417,11 +428,10 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 											</td>
 										</tr>
 
-										{/* Generation error */}
-										{item?.error && (
+										{displayStatus === 'FAILED' && !sceneHistory?.latestAudio && item?.error && (
 											<tr>
 												<td colSpan={6} className='break-words px-4 pb-3 text-xs text-red-400'>
-													{item?.error}
+													{item.error}
 												</td>
 											</tr>
 										)}

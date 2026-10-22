@@ -13,9 +13,10 @@ interface ProjectCastProps {
 	storyId: number;
 	characters: AudioStoryCharacter[];
 	compact?: boolean;
+	onCastSaved?: () => void;
 }
 
-export function ProjectCast({ storyId, characters, compact = false }: ProjectCastProps) {
+export function ProjectCast({ storyId, characters, compact = false, onCastSaved }: ProjectCastProps) {
 	const [cast, setCast] = useState<CastMember[]>([]);
 	const [voices, setVoices] = useState<Voice[]>([]);
 	const [loadingVoices, setLoadingVoices] = useState(true);
@@ -106,6 +107,7 @@ export function ProjectCast({ storyId, characters, compact = false }: ProjectCas
 		setSavingCast(true);
 		setSaveError('');
 		setSaveSuccess(false);
+		onCastSaved?.();
 
 		try {
 			const savedCast = await updateStoryCast(storyId, {

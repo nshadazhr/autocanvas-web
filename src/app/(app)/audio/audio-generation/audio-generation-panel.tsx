@@ -22,8 +22,8 @@ import { RegenerationConfirmModal } from './components/regeneration-confirm-moda
 
 type Props = {
 	storyId: number;
+	allVoicesSelected: boolean;
 };
-
 type SceneGeneration = {
 	sceneId: number;
 	status: AudioGenerationStatus;
@@ -31,7 +31,7 @@ type SceneGeneration = {
 
 const ACTIVE: AudioGenerationStatus[] = ['PENDING', 'PROCESSING', 'WAITING'];
 
-export function AudioGenerationPanel({ storyId }: Props) {
+export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 	const [job, setJob] = useState<AudioGenerationJobDetails | null>(null);
 	const [jobId, setJobId] = useState<number | null>(null);
 
@@ -197,8 +197,7 @@ export function AudioGenerationPanel({ storyId }: Props) {
 
 	// Generate / Regenerate all scenes.
 	const start = async () => {
-		if (busy || active || sceneActive) return;
-
+		if (busy || active || sceneActive || !allVoicesSelected) return;
 		setBusy(true);
 		setError('');
 
@@ -294,6 +293,15 @@ export function AudioGenerationPanel({ storyId }: Props) {
 		setSceneJobId(newJobId);
 	};
 
+	const retryableFailedCount =
+		job?.items.filter(item => {
+			if (item.status !== 'FAILED') return false;
+
+			const sceneHistory = audioHistory?.scenes.find(scene => scene.id === item.sceneId);
+
+			return !sceneHistory?.latestAudio;
+		}).length ?? 0;
+
 	return (
 		<>
 			<section className='space-y-5 rounded-2xl border border-white/10 bg-white/[0.03] p-6'>
@@ -323,20 +331,26 @@ export function AudioGenerationPanel({ storyId }: Props) {
 									void start();
 								}
 							}}
-							disabled={busy || active || sceneActive}
+							disabled={busy || active || sceneActive || !allVoicesSelected}
 							className='rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50'
 						>
 							{busy ? 'Please wait...' : job ? 'Regenerate All' : 'Generate Audio'}
 						</button>
 
-						{job && ['FAILED', 'PARTIAL'].includes(job.status) && (
+						{!allVoicesSelected && (
+							<p className='text-xs text-amber-400'>
+								Please assign and save voices for all characters before generating audio.
+							</p>
+						)}
+
+						{job && ['FAILED', 'PARTIAL'].includes(job.status) && retryableFailedCount > 0 && (
 							<button
 								type='button'
 								onClick={() => void retry()}
 								disabled={busy || sceneActive}
 								className='rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50'
 							>
-								Retry Failed ({job.failedScenes})
+								Retry Failed ({retryableFailedCount})
 							</button>
 						)}
 

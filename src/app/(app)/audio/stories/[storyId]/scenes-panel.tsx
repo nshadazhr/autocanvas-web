@@ -4,9 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AudioStoryCharacter, AudioStoryScene } from '../../../../api/audio-studio/audio-stories.types';
 import { ProjectCast } from '../../project-cast';
 
-type Props = { storyId: number; scenes: AudioStoryScene[]; characters: AudioStoryCharacter[] };
+type Props = {
+	storyId: number;
+	scenes: AudioStoryScene[];
+	characters: AudioStoryCharacter[];
+	onCastSaved?: () => void;
+};
 
-export function ScenesPanel({ storyId, scenes, characters }: Props) {
+export function ScenesPanel({ storyId, scenes, characters, onCastSaved }: Props) {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [search, setSearch] = useState('');
 	const [speaker, setSpeaker] = useState('');
@@ -201,7 +206,7 @@ export function ScenesPanel({ storyId, scenes, characters }: Props) {
 							<p className='mb-3 rounded-lg border border-indigo-400/15 bg-indigo-500/10 p-3 text-xs text-slate-300'>
 								A character's saved voice is used across all their scenes.
 							</p>
-							<ProjectCast storyId={storyId} characters={characters} compact />
+							<ProjectCast storyId={storyId} characters={characters} compact onCastSaved={onCastSaved} />
 						</div>
 					</aside>
 				</div>
