@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
-import { analyzeAudioStory, getAudioStoryById, updateAudioStory } from '../../../../api/audio-studio/audio-stories.api';
+import {
+	analyzeAudioStory,
+	getAudioStoryById,
+	getStoryCast,
+	updateAudioStory
+} from '../../../../api/audio-studio/audio-stories.api';
 
 import type { AudioStory } from '../../../../api/audio-studio/audio-stories.types';
 import { ScenesPanel } from './scenes-panel';
@@ -37,6 +42,9 @@ export default function StoryDetailsPage() {
 
 	const [analyzing, setAnalyzing] = useState(false);
 	const [analyzeError, setAnalyzeError] = useState('');
+
+	const [allVoicesSelected, setAllVoicesSelected] = useState(false);
+	const [checkingVoices, setCheckingVoices] = useState(true);
 
 	// Load story
 	useEffect(() => {
@@ -157,14 +165,59 @@ export default function StoryDetailsPage() {
 		setAnalyzeError('');
 
 		try {
-			const updatedStory = await analyzeAudioStory(story.id);
+			await analyzeAudioStory(story.id);
+			const updatedStory = await getAudioStoryById(story.id);
 			setStory(updatedStory);
-		} catch {
+		} catch (error) {
+			console.error('Story analysis failed:', error);
 			setAnalyzeError('Failed to analyze story. Please try again.');
 		} finally {
 			setAnalyzing(false);
 		}
 	};
+
+	useEffect(() => {
+		if (activeTab !== 'generate') return;
+
+		let cancelled = false;
+
+		async function checkVoices() {
+			setCheckingVoices(true);
+			setAllVoicesSelected(false);
+
+			try {
+				const savedCast = await getStoryCast(storyId);
+				if (cancelled) return;
+
+				const detectedCharacters =
+					story?.analysisStatus === 'COMPLETED' && story.analysisResult?.validation.valid === true
+						? story.analysisResult.characters
+						: [];
+
+				const savedMap = new Map(savedCast.map(character => [character.name, character]));
+
+				const allSelected =
+					detectedCharacters.length > 0 &&
+					detectedCharacters.every(character => {
+						const saved = savedMap.get(character.name);
+						return saved != null && Number(saved.voiceId) > 0;
+					});
+
+				setAllVoicesSelected(allSelected);
+			} catch (error) {
+				console.error('Unable to verify saved voices:', error);
+				if (!cancelled) setAllVoicesSelected(false);
+			} finally {
+				if (!cancelled) setCheckingVoices(false);
+			}
+		}
+
+		void checkVoices();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [activeTab, storyId, story?.analysisResult, story?.analysisStatus]);
 
 	if (loading) {
 		return <p className='text-slate-400'>Loading story...</p>;
@@ -174,7 +227,7 @@ export default function StoryDetailsPage() {
 		return <p className='text-red-400'>{error || 'Story not found.'}</p>;
 	}
 
-	if (story?.status.startsWith('SINGLE_')) {
+	if (story?.status?.startsWith('SINGLE_')) {
 		return (
 			<div className='mx-auto w-full max-w-[1800px] space-y-5'>
 				<Link href='/audio' className='text-sm text-indigo-300'>
@@ -355,6 +408,10 @@ export default function StoryDetailsPage() {
 							storyId={story.id}
 							scenes={analysisResult.scenes}
 							characters={analysisResult.characters}
+							onCastSaved={() => {
+								setAllVoicesSelected(false);
+								setCheckingVoices(true);
+							}}
 						/>
 					) : (
 						<EmptyAnalysis message='Analyze your story to view scenes and assign voices.' />
@@ -366,7 +423,10 @@ export default function StoryDetailsPage() {
 			{activeTab === 'generate' && (
 				<div id='audio-panel-generate' role='tabpanel' aria-labelledby='audio-tab-generate'>
 					{analysisResult ? (
-						<AudioGenerationPanel storyId={story.id} />
+						<AudioGenerationPanel
+							storyId={storyId}
+							allVoicesSelected={allVoicesSelected && !checkingVoices}
+						/>
 					) : (
 						<EmptyAnalysis message='Complete story analysis before generating audio.' />
 					)}

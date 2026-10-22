@@ -24,6 +24,7 @@ export const updateAudioStory = async (storyId: number, data: UpdateAudioStoryRe
 
 export const analyzeAudioStory = async (storyId: number): Promise<AudioStory> => {
 	const response = await api.post<AudioStory>(`/audio-stories/${storyId}/analyze`);
+	console.log('REANALYZE RESPONSE:', response);
 
 	return response.data;
 };

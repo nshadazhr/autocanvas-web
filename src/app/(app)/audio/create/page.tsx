@@ -1,12 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createAudioStory, analyzeAudioStory } from '../../../api/audio-studio/audio-stories.api';
 import { SingleVoiceStudio } from '../single-voice-studio';
 
 type VoiceMode = 'single' | 'multiple';
+
+const EMOTION_TAGS = [
+	'Happy',
+	'Sad',
+	'Angry',
+	'Excited',
+	'Whispers',
+	'Shouting',
+	'Crying',
+	'Laughing',
+	'Nervous',
+	'Scared',
+	'Surprised',
+	'Calm',
+	'Sarcastic',
+	'Serious'
+] as const;
 
 export default function CreateAudioPage() {
 	const [title, setTitle] = useState('');
@@ -17,7 +34,27 @@ export default function CreateAudioPage() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
 
+	const scriptRef = useRef<HTMLTextAreaElement>(null);
+
 	const canContinue = script.trim().length > 0;
+
+	function insertEmotionTag(emotion: string) {
+		const textarea = scriptRef.current;
+		if (!textarea) return;
+
+		const start = textarea.selectionStart;
+		const end = textarea.selectionEnd;
+		const tag = `[${emotion.toLowerCase()}] `;
+
+		const updatedScript = script.slice(0, start) + tag + script.slice(end);
+
+		setScript(updatedScript);
+
+		requestAnimationFrame(() => {
+			textarea.focus();
+			textarea.setSelectionRange(start + tag.length, start + tag.length);
+		});
+	}
 
 	async function handleContinue() {
 		if (!script.trim() || loading) return;
@@ -58,7 +95,9 @@ export default function CreateAudioPage() {
 			</div>
 
 			<div
-				className={`grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(270px,320px)] ${voiceMode === 'single' ? 'xl:h-[34%] xl:shrink-0' : ''}`}
+				className={`grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(270px,320px)] ${
+					voiceMode === 'single' ? 'xl:h-[34%] xl:shrink-0' : ''
+				}`}
 			>
 				{/* Script Editor */}
 				<section className='flex min-h-0 min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-4 xl:p-5'>
@@ -84,21 +123,52 @@ export default function CreateAudioPage() {
 						<span className='text-xs text-slate-500'>{script.length.toLocaleString()} characters</span>
 					</div>
 
+					{/* Quick Emotion Tags - Single Voice Only */}
+					{voiceMode === 'single' && (
+						<div className='mt-3'>
+							<div className='mb-2 flex items-center justify-between gap-2'>
+								<p className='text-xs font-medium text-slate-300'>
+									Quick Emotion Tags
+									<span className='ml-2 font-normal text-slate-500'>(Optional)</span>
+								</p>
+							</div>
+
+							<div className='flex flex-wrap gap-2'>
+								{EMOTION_TAGS.map(emotion => (
+									<button
+										key={emotion}
+										type='button'
+										onMouseDown={event => event.preventDefault()}
+										onClick={() => insertEmotionTag(emotion)}
+										className='rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-indigo-400/50 hover:bg-indigo-500/10 hover:text-white'
+									>
+										+ {emotion}
+									</button>
+								))}
+							</div>
+
+							<p className='mt-2 text-xs text-slate-500'>
+								Click an emotion to insert its tag at the cursor position.
+							</p>
+						</div>
+					)}
+
 					<textarea
+						ref={scriptRef}
 						id='audio-script'
 						value={script}
 						onChange={event => setScript(event.target.value)}
 						placeholder='Write or paste your story here...'
 						className={`mt-2 w-full rounded-xl border border-white/10
-    bg-[#1b1b23] p-4 text-sm text-slate-100
-    placeholder:text-slate-500
-    outline-none transition-colors
-    focus:border-indigo-500
-    ${
-		voiceMode === 'single'
-			? 'min-h-[180px] h-[240px] resize-y xl:h-auto xl:min-h-0 xl:flex-1 xl:resize-none'
-			: 'min-h-[420px] h-[clamp(420px,58vh,850px)] resize-y'
-	}`}
+							bg-[#1b1b23] p-4 text-sm text-slate-100
+							placeholder:text-slate-500
+							outline-none transition-colors
+							focus:border-indigo-500
+							${
+								voiceMode === 'single'
+									? 'min-h-[180px] h-[240px] resize-y xl:h-auto xl:min-h-0 xl:flex-1 xl:resize-none'
+									: 'min-h-[420px] h-[clamp(420px,58vh,850px)] resize-y'
+							}`}
 						spellCheck={false}
 					/>
 
@@ -177,6 +247,7 @@ export default function CreateAudioPage() {
 					)}
 				</aside>
 			</div>
+
 			{voiceMode === 'single' && (
 				<div className='min-h-0 xl:flex-1'>
 					<SingleVoiceStudio draftTitle={title} draftScript={script} />
