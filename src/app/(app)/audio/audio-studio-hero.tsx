@@ -1,22 +1,27 @@
 import { LinkButton } from '@/src/components/ui/button';
+
 export function AudioStudioHero() {
 	return (
-		<div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
-			<div>
-				<p className='mb-1 text-xs font-semibold uppercase tracking-widest text-indigo-400'>YOUR WORKSPACE</p>
+		<div className='flex min-w-0 flex-row items-center justify-between gap-2 sm:gap-4'>
+			<div className='min-w-0 flex-1'>
+				<p className='mb-1 hidden text-xs font-semibold uppercase tracking-widest text-indigo-400 sm:block'>
+					YOUR WORKSPACE
+				</p>
 
-				<h1 className='text-3xl font-bold tracking-tight text-white'>Audio Studio</h1>
+				<h1 className='text-xl font-bold tracking-tight text-white sm:text-3xl'>Audio Studio</h1>
 
-				<p className='mt-2 text-sm text-slate-400'>Create, organize and generate audio from your stories.</p>
+				<p className='mt-2 hidden text-sm text-slate-400 sm:block'>
+					Create, organize and generate audio from your stories.
+				</p>
 			</div>
 
 			<LinkButton
 				href='/audio/create'
 				variant='primary'
 				size='md'
-				className='w-fit gap-2 rounded-xl px-5 py-3 font-semibold'
+				className='ml-auto w-fit shrink-0 gap-1 rounded-xl px-3 py-2 text-xs font-semibold sm:gap-2 sm:px-5 sm:py-3 sm:text-sm'
 			>
-				<span className='text-lg leading-none'>+</span>
+				<span className='text-base leading-none sm:text-lg'>+</span>
 				Create Audio
 			</LinkButton>
 		</div>
