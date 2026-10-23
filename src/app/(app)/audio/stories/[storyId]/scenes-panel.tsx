@@ -53,8 +53,8 @@ export function ScenesPanel({ storyId, scenes, characters, onCastSaved }: Props)
 		'min-w-0 rounded-lg border border-white/10 bg-[#121a2c] px-3 py-2.5 text-sm text-slate-200 outline-none focus:border-indigo-400';
 	return (
 		<>
-			<section className='flex h-[calc(100dvh-340px)] min-h-[350px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-5'>
-				<div className='mb-4 flex flex-wrap items-center justify-between gap-3'>
+			<section className='flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-5'>
+				<div className='mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2'>
 					<div>
 						<h2 className='text-lg font-semibold text-white'>Scenes ({scenes.length})</h2>
 						<p className='text-xs text-slate-400'>Review analyzed scenes and dialogue</p>
@@ -67,13 +67,13 @@ export function ScenesPanel({ storyId, scenes, characters, onCastSaved }: Props)
 						Manage Voices ({characters.length})
 					</button>
 				</div>
-				<div className='mb-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(130px,180px)_minmax(130px,180px)]'>
+				<div className='mb-3 grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(130px,180px)_minmax(130px,180px)]'>
 					<input
 						value={search}
 						onChange={e => setSearch(e.target.value)}
 						placeholder='Search scenes or dialogue...'
 						aria-label='Search scenes'
-						className={fieldClass}
+						className={`${fieldClass} col-span-2 sm:col-span-1`}
 					/>
 					<select
 						value={speaker}
@@ -124,7 +124,7 @@ export function ScenesPanel({ storyId, scenes, characters, onCastSaved }: Props)
 										{scene.speakerName}
 									</span>
 								</div>
-								<div className='mb-3 flex flex-wrap gap-2 text-xs'>
+								<div className='mb-3 flex flex-wrap gap-2 text-xs [&>span]:max-w-full [&>span]:break-words'>
 									<span className='rounded-full bg-violet-500/10 px-2.5 py-1 text-violet-300'>
 										Emotion: {scene.emotion}
 									</span>
@@ -168,7 +168,7 @@ export function ScenesPanel({ storyId, scenes, characters, onCastSaved }: Props)
 						);
 					})}
 				</div>
-				<p className='mt-2 text-right text-xs text-slate-500'>
+				<p className='mt-2 shrink-0 text-right text-xs text-slate-500'>
 					Showing {filtered.length} of {scenes.length} scenes
 				</p>
 			</section>

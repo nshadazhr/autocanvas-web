@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type RefObject } from 'react';
 import type {
 	AudioGenerationJobDetails,
 	AudioGenerationStatus,
@@ -10,18 +10,34 @@ import { InlineSceneAudioPlayer } from './inline-scene-audio-player';
 import { ScenesToolbar, type SceneStatusFilter, type SceneViewMode } from './scenes-toolbar';
 import { getGeneratedAudioBlob, regenerateSingleScene } from '../../../../api/audio-studio/audio-generation.api';
 import { RegenerationConfirmModal } from './regeneration-confirm-modal';
+import { apiErrorMessage } from '../../../../../lib/api-error';
 
 type Props = {
+	scrollContainerRef: RefObject<HTMLDivElement>;
 	storyId: number;
 	items: AudioGenerationJobDetails['items'];
 	audioHistory: StoryAudioHistory | null;
 	sceneGeneration: { sceneId: number; status: AudioGenerationStatus } | null;
 	onJobCreated: (jobId: number, sceneId: number) => void;
+	generationBlocked?: boolean;
 };
 
 const PAGE_SIZE = 20;
 
-export function GenerationScenesTable({ storyId, items, audioHistory, sceneGeneration, onJobCreated }: Props) {
+function sceneVoiceName(scene?: StoryAudioHistory['scenes'][number]) {
+	// Older API responses only supplied the voice on generated audio.
+	return scene?.assignedVoice === undefined ? scene?.latestAudio?.voice.name : scene.assignedVoice?.name;
+}
+
+export function GenerationScenesTable({
+	scrollContainerRef,
+	storyId,
+	items,
+	audioHistory,
+	sceneGeneration,
+	onJobCreated,
+	generationBlocked = false
+}: Props) {
 	const [expandedSceneId, setExpandedSceneId] = useState<number | null>(null);
 	const [search, setSearch] = useState('');
 	const [status, setStatus] = useState<SceneStatusFilter>('ALL');
@@ -33,36 +49,15 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 	const [regenerateScene, setRegenerateScene] = useState<{
 		sceneId: number;
 		sceneNumber: number;
+		action: 'generate' | 'retry' | 'regenerate';
 	} | null>(null);
 
 	const [regenerating, setRegenerating] = useState(false);
-	const [tableHeight, setTableHeight] = useState<number | null>(null);
+	const [actionError, setActionError] = useState('');
+	const actionInFlight = useRef(false);
 
-	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const lastScrollTopRef = useRef(0);
 	const autoPageLockedRef = useRef(false);
-
-	// Fill only the viewport space below the table; scrolling stays inside it.
-	useEffect(() => {
-		let frame = 0;
-		const measure = () => {
-			cancelAnimationFrame(frame);
-			frame = requestAnimationFrame(() => {
-				const container = scrollContainerRef.current;
-				if (!container) return;
-				const top = container.getBoundingClientRect().top;
-				const footerSpace = viewMode === 'PAGINATION' ? 65 : 0;
-				const available = Math.max(160, Math.floor(window.innerHeight - top - footerSpace - 24));
-				setTableHeight(previous => (previous === available ? previous : available));
-			});
-		};
-		measure();
-		window.addEventListener('resize', measure);
-		return () => {
-			window.removeEventListener('resize', measure);
-			cancelAnimationFrame(frame);
-		};
-	}, [viewMode, expandedSceneId, audioHistory, sceneGeneration]);
 
 	// Match job items with their corresponding scene history.
 	const historyBySceneId = new Map((audioHistory?.scenes ?? []).map(scene => [scene.id, scene]));
@@ -70,7 +65,7 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 	const voices = Array.from(
 		new Set(
 			(audioHistory?.scenes ?? [])
-				.map(scene => scene.latestAudio?.voice.name)
+				.map(scene => sceneVoiceName(scene))
 				.filter((name): name is string => Boolean(name))
 		)
 	).sort();
@@ -80,7 +75,9 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 	const itemsBySceneId = new Map(items.map(item => [item.sceneId, item]));
 	const rows = audioHistory
 		? audioHistory.scenes.map(sceneHistory => ({
-				item: itemsBySceneId.get(sceneHistory.id),
+				item:
+					itemsBySceneId.get(sceneHistory.id) ??
+					(sceneHistory.lastGeneration ? { ...sceneHistory.lastGeneration, audio: null } : undefined),
 				sceneId: sceneHistory.id,
 				sceneNumber: sceneHistory.sceneOrder,
 				sceneHistory
@@ -100,13 +97,11 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 			return sceneGeneration.status;
 		}
 
-		if (hasAudio) return 'COMPLETED';
-
 		if (sceneGeneration?.sceneId === sceneId) {
 			return sceneGeneration.status;
 		}
 
-		return item?.status ?? '—';
+		return item?.status ?? (hasAudio ? 'COMPLETED' : 'PENDING');
 	};
 
 	const filteredItems = rows.filter(({ item, sceneId, sceneNumber, sceneHistory }) => {
@@ -117,7 +112,7 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 			String(sceneNumber),
 			sceneHistory?.text,
 			sceneHistory?.speakerName,
-			sceneHistory?.latestAudio?.voice.name
+			sceneVoiceName(sceneHistory)
 		]
 			.filter((value): value is string => typeof value === 'string')
 			.join(' ')
@@ -129,7 +124,8 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 
 		const matchesStatus = status === 'ALL' || displayStatus === status;
 
-		const matchesVoice = voice === 'ALL' || sceneHistory?.latestAudio?.voice.name === voice;
+		const voiceName = sceneVoiceName(sceneHistory);
+		const matchesVoice = voice === 'ALL' || voiceName === voice;
 
 		return matchesSearch && matchesStatus && matchesVoice;
 	});
@@ -165,27 +161,32 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 			const link = document.createElement('a');
 
 			link.href = url;
-			link.download = `scene-${sceneId}.wav`;
+			const scene = historyBySceneId.get(sceneId);
+			link.download = scene?.downloadFilename ?? `${String(scene?.sceneOrder ?? sceneId).padStart(3, '0')}_scene.wav`;
 
 			document.body.appendChild(link);
 			link.click();
 			link.remove();
 
-			URL.revokeObjectURL(url);
+			window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 		} catch (error) {
 			console.error('Audio download failed:', error);
-			alert('Unable to download audio.');
+			setActionError(apiErrorMessage(error, 'Unable to download audio.'));
 		}
 	};
 	const handleConfirmRegenerate = async () => {
 		if (
 			!regenerateScene ||
+			generationBlocked ||
+			actionInFlight.current ||
 			regenerating ||
 			(sceneGeneration && ['PENDING', 'PROCESSING', 'WAITING'].includes(sceneGeneration.status))
 		)
 			return;
 
+		actionInFlight.current = true;
 		setRegenerating(true);
+		setActionError('');
 
 		try {
 			const job = await regenerateSingleScene(storyId, regenerateScene.sceneId);
@@ -194,8 +195,9 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 			onJobCreated(job.id, regenerateScene.sceneId);
 		} catch (error) {
 			console.error('Scene regeneration failed:', error);
-			alert('Unable to regenerate scene.');
+			setActionError(apiErrorMessage(error, 'Unable to regenerate scene.'));
 		} finally {
+			actionInFlight.current = false;
 			setRegenerating(false);
 		}
 	};
@@ -209,10 +211,11 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 		autoPageLockedRef.current = false;
 
 		scrollContainerRef.current?.scrollTo({ top: 0 });
-	}, [search, status, voice, viewMode]);
+	}, [search, status, voice, viewMode, scrollContainerRef]);
 
-	const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-		const element = event.currentTarget;
+	const handleScroll = () => {
+		const element = scrollContainerRef.current;
+		if (!element) return;
 
 		const scrollTop = element.scrollTop;
 		const previousScrollTop = lastScrollTopRef.current;
@@ -250,8 +253,22 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 		}
 	};
 
+	// The generation panel owns scrolling, including its controls and summary.
+	// Keeping one scroll container prevents nested scroll positions hiding them.
+	useEffect(() => {
+		const element = scrollContainerRef.current;
+		if (!element) return;
+		element.addEventListener('scroll', handleScroll, { passive: true });
+		return () => element.removeEventListener('scroll', handleScroll);
+	});
+
 	return (
-		<div className='space-y-3'>
+		<div className='flex min-w-0 flex-col gap-3'>
+			{actionError && (
+				<p role='alert' className='text-sm text-red-400'>
+					{actionError}
+				</p>
+			)}
 			<div className='flex flex-wrap items-center justify-between gap-2'>
 				<h3 className='font-semibold text-white'>Scenes</h3>
 
@@ -273,21 +290,16 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 				onViewModeChange={setViewMode}
 			/>
 
-			<div className='overflow-hidden rounded-xl border border-white/10'>
-				<div
-					ref={scrollContainerRef}
-					className='overflow-auto overscroll-contain'
-					style={{ height: tableHeight ?? 400 }}
-					onScroll={handleScroll}
-				>
-					<table className='w-full min-w-[1500px] table-fixed text-left text-sm'>
+			<div className='rounded-xl border border-white/10'>
+				<div>
+					<table className='generation-scenes-table w-full table-fixed text-left text-sm'>
 						<colgroup>
-							<col style={{ width: '27%' }} />
-							<col style={{ width: '9%' }} />
-							<col style={{ width: '8%' }} />
+							<col style={{ width: '26%' }} />
 							<col style={{ width: '10%' }} />
-							<col style={{ width: '6%' }} />
-							<col style={{ width: '40%' }} />
+							<col style={{ width: '10%' }} />
+							<col style={{ width: '12%' }} />
+							<col style={{ width: '10%' }} />
+							<col style={{ width: '32%' }} />
 						</colgroup>
 						<thead className='sticky top-0 z-10 bg-slate-900 text-slate-400'>
 							<tr>
@@ -308,6 +320,10 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 									Boolean(sceneHistory?.latestAudio)
 								);
 								const latestAudioId = sceneHistory?.latestAudio?.id ?? item?.audio?.id;
+								const action = latestAudioId ? 'regenerate' : (item?.attempts ?? 0) > 0 ? 'retry' : 'generate';
+								const queued = displayStatus === 'PENDING' && !!item;
+								const rowActive = queued || displayStatus === 'PROCESSING' || displayStatus === 'WAITING';
+								const actionLabel = displayStatus === 'PROCESSING' ? 'Generating...' : displayStatus === 'WAITING' ? 'Waiting...' : queued ? 'Queued' : action === 'generate' ? 'Generate' : action === 'retry' ? 'Retry' : 'Regenerate';
 								const isSceneBusy =
 									sceneGeneration !== null &&
 									['PENDING', 'PROCESSING', 'WAITING'].includes(sceneGeneration.status);
@@ -328,7 +344,7 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 
 												{sceneHistory?.text && (
 													<p
-														className='mt-1 max-w-[320px] truncate text-xs text-slate-400'
+														className='mt-1 line-clamp-2 break-words text-xs leading-5 text-slate-400'
 														title={sceneHistory.text}
 													>
 														{sceneHistory.text}
@@ -336,11 +352,11 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 												)}
 											</td>
 
-											<td className='px-4 py-3 text-sm text-slate-300'>
-												{sceneHistory?.latestAudio?.voice.name ?? '—'}
+											<td data-label='Voice' className='px-4 py-3 text-sm text-slate-300'>
+												{(sceneVoiceName(sceneHistory)) ?? '—'}
 											</td>
 
-											<td className='px-4 py-3 text-sm text-slate-300'>
+											<td data-label='Duration' className='px-4 py-3 text-sm text-slate-300'>
 												{(() => {
 													const durationMs =
 														sceneHistory?.latestAudio?.durationMs ??
@@ -357,7 +373,7 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 											</td>
 
 											{/* Status */}
-											<td className='px-4 py-3'>
+											<td data-label='Status' className='px-4 py-3'>
 												<span
 													className={
 														displayStatus === 'COMPLETED'
@@ -369,18 +385,34 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 												>
 													{displayStatus}
 												</span>
+												{displayStatus !== 'COMPLETED' && latestAudioId != null && (
+													<p className='mt-1 text-xs text-slate-400'>
+														Previous audio available
+													</p>
+												)}
+												{item?.nextRetryAt && displayStatus === 'WAITING' && (
+													<p className='mt-1 text-xs text-slate-400'>
+														Retry after {new Date(item.nextRetryAt).toLocaleTimeString()}
+													</p>
+												)}
 											</td>
 
 											{/* Attempts */}
-											<td className='px-4 py-3 text-slate-300'>{item?.attempts ?? '—'}</td>
+											<td data-label='Attempts' className='px-4 py-3 text-slate-300'>
+												{item?.attempts ?? '—'}
+											</td>
 
 											{/* Audio player toggle */}
 											<td className='px-4 py-3'>
-												<div className='flex items-center justify-end gap-2 whitespace-nowrap'>
+												<div className='flex flex-wrap items-center justify-end gap-2'>
 													{latestAudioId != null && (
 														<>
 															<div
-																className='w-[320px] shrink-0 overflow-hidden'
+																className={
+																	expandedSceneId === sceneId
+																		? 'order-last w-full min-w-0 overflow-hidden'
+																		: 'hidden'
+																}
 																aria-live='off'
 															>
 																{expandedSceneId === sceneId && (
@@ -416,19 +448,20 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 														onClick={() =>
 															setRegenerateScene({
 																sceneId,
-																sceneNumber
+																sceneNumber,
+																action
 															})
 														}
-														disabled={regenerating || isSceneBusy}
+														disabled={generationBlocked || regenerating || isSceneBusy || rowActive}
 														className='rounded-lg border border-indigo-500/30 px-3 py-1.5 text-xs text-indigo-300 hover:bg-indigo-500/10 disabled:opacity-50'
 													>
-														Regenerate
+														{actionLabel}
 													</button>
 												</div>
 											</td>
 										</tr>
 
-										{displayStatus === 'FAILED' && !sceneHistory?.latestAudio && item?.error && (
+										{displayStatus === 'FAILED' && item?.error && (
 											<tr>
 												<td colSpan={6} className='break-words px-4 pb-3 text-xs text-red-400'>
 													{item.error}
@@ -483,6 +516,7 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 			<RegenerationConfirmModal
 				open={regenerateScene !== null}
 				sceneNumber={regenerateScene?.sceneNumber}
+				action={regenerateScene?.action}
 				loading={regenerating}
 				onConfirm={() => void handleConfirmRegenerate()}
 				onClose={() => setRegenerateScene(null)}

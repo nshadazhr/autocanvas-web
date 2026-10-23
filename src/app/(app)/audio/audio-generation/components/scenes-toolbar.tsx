@@ -1,6 +1,6 @@
 'use client';
 
-export type SceneStatusFilter = 'ALL' | 'COMPLETED' | 'FAILED' | 'PENDING' | 'PROCESSING' | 'WAITING';
+export type SceneStatusFilter = 'ALL' | 'COMPLETED' | 'FAILED' | 'PENDING' | 'PROCESSING' | 'WAITING' | 'CANCELLED';
 
 export type SceneViewMode = 'INFINITE' | 'PAGINATION';
 
@@ -28,21 +28,21 @@ export function ScenesToolbar({
 	onViewModeChange
 }: Props) {
 	return (
-		<div className='flex flex-wrap items-center gap-3'>
+		<div className='grid shrink-0 grid-cols-2 gap-2 lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,auto))]'>
 			<input
 				type='search'
 				value={search}
 				onChange={e => onSearchChange(e.target.value)}
 				placeholder='Search scene ID...'
 				aria-label='Search scenes'
-				className='min-w-[180px] flex-1 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500'
+				className='col-span-2 min-w-0 rounded-lg lg:col-span-1 border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500'
 			/>
 
 			<select
 				value={status}
 				onChange={e => onStatusChange(e.target.value as SceneStatusFilter)}
 				aria-label='Filter scenes by status'
-				className='rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white'
+				className='min-w-0 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white'
 			>
 				<option value='ALL'>All Status</option>
 				<option value='COMPLETED'>Completed</option>
@@ -50,13 +50,14 @@ export function ScenesToolbar({
 				<option value='PENDING'>Pending</option>
 				<option value='PROCESSING'>Processing</option>
 				<option value='WAITING'>Waiting</option>
+				<option value='CANCELLED'>Cancelled</option>
 			</select>
 
 			<select
 				value={voice}
 				onChange={event => onVoiceChange(event.target.value)}
 				aria-label='Filter by voice'
-				className='rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500'
+				className='min-w-0 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none focus:border-indigo-500'
 			>
 				<option value='ALL'>All Voices</option>
 
@@ -70,7 +71,7 @@ export function ScenesToolbar({
 				value={viewMode}
 				onChange={e => onViewModeChange(e.target.value as SceneViewMode)}
 				aria-label='Scene navigation mode'
-				className='rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white'
+				className='min-w-0 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white'
 			>
 				<option value='INFINITE'>Infinite Scroll</option>
 				<option value='PAGINATION'>Auto Pagination</option>

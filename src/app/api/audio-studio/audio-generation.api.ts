@@ -1,5 +1,13 @@
 import api from '../axios';
+import { parseGenerationJobResponse } from './audio-generation-response';
 import type { AudioGenerationJob, AudioGenerationJobDetails, StoryAudioHistory } from './audio-generation.types';
+
+export async function cancelAudioGenerationJob(jobId: number): Promise<AudioGenerationJobDetails> {
+	const { data } = await api.post<unknown>(`/audio-generation/jobs/${jobId}/cancel`);
+	const job = parseGenerationJobResponse(data);
+	if (!job) throw new Error('Cancellation status was not returned. Please refresh.');
+	return job;
+}
 
 export const createAudioGenerationJob = async (storyId: number): Promise<AudioGenerationJob> => {
 	const response = await api.post<AudioGenerationJob>(`/audio-generation/stories/${storyId}/jobs`);
@@ -7,9 +15,18 @@ export const createAudioGenerationJob = async (storyId: number): Promise<AudioGe
 };
 
 export const getAudioGenerationJob = async (jobId: number): Promise<AudioGenerationJobDetails> => {
-	const response = await api.get<AudioGenerationJobDetails>(`/audio-generation/jobs/${jobId}`);
-	return response.data;
+	const response = await api.get<unknown>(`/audio-generation/jobs/${jobId}`);
+	const job = parseGenerationJobResponse(response.data);
+	if (!job) throw new Error('Generation job was not returned. Please refresh.');
+	return job;
 };
+
+export async function getLatestStoryJob(storyId: number): Promise<AudioGenerationJobDetails | null> {
+	const { data } = await api.get<unknown>(
+		`/audio-generation/stories/${storyId}/jobs/latest`
+	);
+	return parseGenerationJobResponse(data);
+}
 
 export const retryAudioGenerationJob = async (jobId: number): Promise<AudioGenerationJob> => {
 	const response = await api.post<AudioGenerationJob>(`/audio-generation/jobs/${jobId}/retry`);

@@ -1,4 +1,5 @@
-export type AudioGenerationStatus = 'PENDING' | 'PROCESSING' | 'WAITING' | 'COMPLETED' | 'FAILED' | 'PARTIAL';
+export type AudioGenerationStatus =
+	'PENDING' | 'PROCESSING' | 'WAITING' | 'COMPLETED' | 'FAILED' | 'PARTIAL' | 'CANCELLED' | 'SKIPPED';
 export interface AudioGenerationJob {
 	id: number;
 	storyId: number;
@@ -21,6 +22,7 @@ export interface AudioGenerationItem {
 	status: AudioGenerationStatus;
 	attempts: number;
 	error: string | null;
+	nextRetryAt?: string | null;
 	audio: GeneratedSceneAudio | null;
 }
 
@@ -47,8 +49,11 @@ export type SceneAudioHistory = {
 	sceneOrder: number;
 	title: string | null;
 	speakerName: string | null;
+	assignedVoice?: { id: number; name: string } | null;
+	downloadFilename?: string;
 	text: string;
 	latestAudio: SceneAudioVersion | null;
+	lastGeneration?: Omit<AudioGenerationItem, 'audio'> | null;
 	audioVersions: SceneAudioVersion[];
 };
 

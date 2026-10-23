@@ -8,9 +8,11 @@ type Props = {
 	onConfirm: () => void;
 	onClose: () => void;
 	sceneNumber?: number;
+	action?: 'generate' | 'retry' | 'regenerate';
 };
 
-export function RegenerationConfirmModal({ open, loading = false, sceneNumber, onConfirm, onClose }: Props) {
+export function RegenerationConfirmModal({ open, loading = false, sceneNumber, action = 'regenerate', onConfirm, onClose }: Props) {
+	const verb = action === 'generate' ? 'Generate' : action === 'retry' ? 'Retry' : 'Regenerate';
 	useEffect(() => {
 		if (!open) return;
 
@@ -39,18 +41,18 @@ export function RegenerationConfirmModal({ open, loading = false, sceneNumber, o
 				className='w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl'
 			>
 				<h2 id='regeneration-modal-title' className='text-lg font-semibold text-white'>
-					{sceneNumber !== undefined ? `Regenerate Scene ${sceneNumber}?` : 'Regenerate All Audio?'}
+					{sceneNumber !== undefined ? `${verb} Scene ${sceneNumber}?` : 'Regenerate All Audio?'}
 				</h2>
 
 				<p id='regeneration-modal-description' className='mt-3 text-sm leading-6 text-slate-300'>
 					{sceneNumber !== undefined
-						? `This will start a new audio generation job for Scene ${sceneNumber}. Other scenes will remain unchanged. Please download any audio you want to keep before continuing.`
-						: 'This will start a new audio generation job for all scenes. Please download any audio you want to keep before continuing.'}
+						? `This will generate audio for Scene ${sceneNumber}. Other scenes will remain unchanged.`
+						: 'This will generate new audio for all scenes. Previously saved audio will be kept.'}
 				</p>
 
 				<div className='mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3'>
 					<p className='text-sm text-amber-300'>
-						Existing audio replacement and automatic Trash cleanup are not enabled yet.
+						This uses your audio generation allowance. Previously saved audio will be kept.
 					</p>
 				</div>
 
@@ -70,7 +72,7 @@ export function RegenerationConfirmModal({ open, loading = false, sceneNumber, o
 						disabled={loading}
 						className='rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50'
 					>
-						{loading ? 'Starting...' : sceneNumber !== undefined ? 'Regenerate Scene' : 'Regenerate All'}
+						{loading ? 'Starting...' : sceneNumber !== undefined ? `${verb} Scene` : 'Regenerate All'}
 					</button>
 				</div>
 			</div>
