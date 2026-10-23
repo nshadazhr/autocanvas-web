@@ -244,29 +244,30 @@ export default function StoryDetailsPage() {
 	const analysisResult = analysisCompleted ? story.analysisResult : null;
 
 	return (
-		<div className='flex flex-col gap-6 text-slate-100'>
+		<div className='flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden text-slate-100 sm:gap-6 [&>a]:shrink-0'>
 			{/* Back Navigation */}
 			<Link href='/audio' className='w-fit text-sm text-indigo-400 hover:text-indigo-300'>
 				← Back to Audio Studio
 			</Link>
 
 			{/* Story Header */}
-			<div className='flex flex-wrap items-center justify-between gap-4'>
-				<div className='min-w-0 flex-1'>
+			<div className='flex min-w-0 shrink-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
+				<div className='min-w-0 lg:flex-1'>
 					{isEditing ? (
 						<input
+							aria-label='Story title'
 							value={editTitle}
 							onChange={e => setEditTitle(e.target.value)}
-							className='w-full rounded-lg border border-white/10 bg-white/5 p-3 text-xl font-bold text-white'
+							className='min-w-0 w-full rounded-lg border border-white/10 bg-white/5 p-3 text-lg font-bold text-white focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 sm:text-xl'
 						/>
 					) : (
-						<h1 className='text-2xl font-bold text-white'>{story.title}</h1>
+						<h1 className='break-words text-xl font-bold text-white sm:text-2xl'>{story.title}</h1>
 					)}
 
 					<p className='mt-2 text-sm text-slate-400'>Analysis Status: {story.analysisStatus}</p>
 				</div>
 
-				<div className='flex flex-wrap items-center gap-3'>
+				<div className='grid grid-cols-2 gap-3 [&>button]:min-h-11 [&>button]:px-3 lg:flex lg:shrink-0 lg:items-center lg:[&>button]:px-4'>
 					{!isEditing ? (
 						<>
 							<button
@@ -324,7 +325,7 @@ export default function StoryDetailsPage() {
 			<div
 				role='tablist'
 				aria-label='Audio Studio editor sections'
-				className='flex flex-wrap gap-2 border-b border-white/10 pb-3'
+				className='flex shrink-0 gap-2 overflow-x-auto border-b border-white/10 pb-3'
 			>
 				{tabs.map(tab => {
 					const selected = activeTab === tab.id;
@@ -340,7 +341,7 @@ export default function StoryDetailsPage() {
 							aria-selected={selected}
 							aria-controls={`audio-panel-${tab.id}`}
 							onClick={() => setActiveTab(tab.id)}
-							className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+							className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-colors sm:px-4 ${
 								selected
 									? 'bg-indigo-600 text-white'
 									: 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
@@ -356,21 +357,23 @@ export default function StoryDetailsPage() {
 			{/* Script Tab */}
 			{activeTab === 'script' && (
 				<div
+					key='script'
 					id='audio-panel-script'
 					role='tabpanel'
 					aria-labelledby='audio-tab-script'
-					className='min-w-0 space-y-5'
+					className='flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto'
 				>
-					<section className='flex h-[calc(100dvh-340px)] min-h-[300px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6'>
-						<h2 className='mb-4 text-lg font-semibold text-white'>Original Story</h2>
+					<section className='flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-6'>
+						<h2 className='mb-4 shrink-0 text-lg font-semibold text-white'>Original Story</h2>
 						{isEditing ? (
 							<textarea
+								aria-label='Story content'
 								value={editContent}
 								onChange={e => setEditContent(e.target.value)}
-								className='min-h-0 flex-1 resize-none overflow-y-auto rounded-lg border border-white/10 bg-white/5 p-4 text-sm leading-7 text-white'
+								className='min-h-0 w-full flex-1 resize-none overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-white/5 p-3 text-base leading-7 text-white focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/30 sm:p-4 lg:h-auto lg:min-h-0 lg:flex-1 lg:resize-none lg:text-sm'
 							/>
 						) : (
-							<div className='min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words pr-3 text-sm leading-7 text-slate-300'>
+							<div className='min-h-0 flex-1 overflow-y-auto overscroll-contain whitespace-pre-wrap break-words pr-2 text-sm leading-7 text-slate-300'>
 								{story.content}
 							</div>
 						)}
@@ -402,7 +405,7 @@ export default function StoryDetailsPage() {
 
 			{/* Scenes and voice assignment */}
 			{activeTab === 'scenes' && (
-				<div id='audio-panel-scenes' role='tabpanel' aria-labelledby='audio-tab-scenes'>
+				<div key='scenes' className='flex min-h-0 flex-1 flex-col overflow-hidden' id='audio-panel-scenes' role='tabpanel' aria-labelledby='audio-tab-scenes'>
 					{analysisResult ? (
 						<ScenesPanel
 							storyId={story.id}
@@ -421,7 +424,7 @@ export default function StoryDetailsPage() {
 
 			{/* Generate Audio Tab */}
 			{activeTab === 'generate' && (
-				<div id='audio-panel-generate' role='tabpanel' aria-labelledby='audio-tab-generate'>
+				<div key='generate' className='min-h-0 flex-1 overflow-hidden' id='audio-panel-generate' role='tabpanel' aria-labelledby='audio-tab-generate'>
 					{analysisResult ? (
 						<AudioGenerationPanel
 							storyId={storyId}

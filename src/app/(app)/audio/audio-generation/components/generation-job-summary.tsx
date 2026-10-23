@@ -18,7 +18,7 @@ const statusStyles: Record<string, string> = {
 
 function Stat({ label, value, color, dot }: { label: string; value: number; color: string; dot: string }) {
 	return (
-		<div className='flex min-w-[120px] flex-1 items-center gap-2.5 rounded-lg border border-white/[0.07] bg-white/[0.035] px-3 py-2.5'>
+		<div className='flex min-w-0 items-center gap-2 rounded-lg border border-white/[0.07] bg-white/[0.035] px-3 py-2.5'>
 			<span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
 			<span className={`text-xl font-semibold tabular-nums leading-none ${color}`}>{value}</span>
 			<span className='text-xs font-medium text-slate-400'>{label}</span>
@@ -54,10 +54,10 @@ export function GenerationJobSummary({ job, audioHistory }: Props) {
 	return (
 		<section
 			aria-label='Story audio generation summary'
-			className='rounded-xl border border-[#253149] bg-[#111a2b] px-3 py-3 sm:px-4'
+			className='shrink-0 rounded-xl border border-[#253149] bg-[#111a2b] px-3 py-3 sm:px-4'
 		>
-			<div className='flex items-center gap-3 overflow-x-auto pb-1 lg:overflow-visible lg:pb-0'>
-				<div className='flex min-w-[195px] shrink-0 items-center gap-2.5 border-r border-white/10 pr-3'>
+			<div className='grid grid-cols-2 gap-2 xl:grid-cols-[auto_repeat(4,minmax(0,1fr))]'>
+				<div className='col-span-2 flex min-w-0 flex-wrap items-center gap-2 pb-1 xl:col-span-1 xl:pr-3'>
 					<span className='text-sm font-semibold whitespace-nowrap text-white'>Job #{job.id}</span>
 					<span
 						className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold ${statusStyles[status] ?? statusStyles.PENDING}`}
@@ -69,7 +69,7 @@ export function GenerationJobSummary({ job, audioHistory }: Props) {
 				<Stat label='Completed' value={completed} color='text-emerald-400' dot='bg-emerald-400' />
 				<Stat label='Failed' value={failed} color='text-rose-400' dot='bg-rose-400' />
 				<Stat label='Pending' value={pending} color='text-sky-400' dot='bg-sky-400' />
-				<div className='flex min-w-[195px] flex-1 items-center gap-3 rounded-lg border border-indigo-400/15 bg-indigo-400/[0.06] px-3 py-2'>
+				<div className='flex min-w-0 items-center gap-2 rounded-lg border border-indigo-400/15 bg-indigo-400/[0.06] px-3 py-2'>
 					<div
 						className='relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full'
 						style={{ background: `conic-gradient(#818cf8 ${percent}%, #293349 ${percent}% 100%)` }}
@@ -80,7 +80,7 @@ export function GenerationJobSummary({ job, audioHistory }: Props) {
 					</div>
 					<div className='min-w-0'>
 						<p className='text-xs font-semibold text-slate-100'>Progress</p>
-						<p className='whitespace-nowrap text-[11px] text-slate-400'>
+						<p className='text-[11px] text-slate-400'>
 							{processed} / {total} processed
 						</p>
 					</div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type RefObject } from 'react';
 import type {
 	AudioGenerationJobDetails,
 	AudioGenerationStatus,
@@ -12,6 +12,7 @@ import { getGeneratedAudioBlob, regenerateSingleScene } from '../../../../api/au
 import { RegenerationConfirmModal } from './regeneration-confirm-modal';
 
 type Props = {
+	scrollContainerRef: RefObject<HTMLDivElement>;
 	storyId: number;
 	items: AudioGenerationJobDetails['items'];
 	audioHistory: StoryAudioHistory | null;
@@ -21,7 +22,7 @@ type Props = {
 
 const PAGE_SIZE = 20;
 
-export function GenerationScenesTable({ storyId, items, audioHistory, sceneGeneration, onJobCreated }: Props) {
+export function GenerationScenesTable({ scrollContainerRef, storyId, items, audioHistory, sceneGeneration, onJobCreated }: Props) {
 	const [expandedSceneId, setExpandedSceneId] = useState<number | null>(null);
 	const [search, setSearch] = useState('');
 	const [status, setStatus] = useState<SceneStatusFilter>('ALL');
@@ -36,33 +37,9 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 	} | null>(null);
 
 	const [regenerating, setRegenerating] = useState(false);
-	const [tableHeight, setTableHeight] = useState<number | null>(null);
 
-	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const lastScrollTopRef = useRef(0);
 	const autoPageLockedRef = useRef(false);
-
-	// Fill only the viewport space below the table; scrolling stays inside it.
-	useEffect(() => {
-		let frame = 0;
-		const measure = () => {
-			cancelAnimationFrame(frame);
-			frame = requestAnimationFrame(() => {
-				const container = scrollContainerRef.current;
-				if (!container) return;
-				const top = container.getBoundingClientRect().top;
-				const footerSpace = viewMode === 'PAGINATION' ? 65 : 0;
-				const available = Math.max(160, Math.floor(window.innerHeight - top - footerSpace - 24));
-				setTableHeight(previous => (previous === available ? previous : available));
-			});
-		};
-		measure();
-		window.addEventListener('resize', measure);
-		return () => {
-			window.removeEventListener('resize', measure);
-			cancelAnimationFrame(frame);
-		};
-	}, [viewMode, expandedSceneId, audioHistory, sceneGeneration]);
 
 	// Match job items with their corresponding scene history.
 	const historyBySceneId = new Map((audioHistory?.scenes ?? []).map(scene => [scene.id, scene]));
@@ -209,10 +186,11 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 		autoPageLockedRef.current = false;
 
 		scrollContainerRef.current?.scrollTo({ top: 0 });
-	}, [search, status, voice, viewMode]);
+	}, [search, status, voice, viewMode, scrollContainerRef]);
 
-	const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
-		const element = event.currentTarget;
+	const handleScroll = () => {
+		const element = scrollContainerRef.current;
+		if (!element) return;
 
 		const scrollTop = element.scrollTop;
 		const previousScrollTop = lastScrollTopRef.current;
@@ -250,8 +228,17 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 		}
 	};
 
+	// The generation panel owns scrolling, including its controls and summary.
+	// Keeping one scroll container prevents nested scroll positions hiding them.
+	useEffect(() => {
+		const element = scrollContainerRef.current;
+		if (!element) return;
+		element.addEventListener('scroll', handleScroll, { passive: true });
+		return () => element.removeEventListener('scroll', handleScroll);
+	});
+
 	return (
-		<div className='space-y-3'>
+		<div className='flex min-w-0 flex-col gap-3'>
 			<div className='flex flex-wrap items-center justify-between gap-2'>
 				<h3 className='font-semibold text-white'>Scenes</h3>
 
@@ -273,21 +260,16 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 				onViewModeChange={setViewMode}
 			/>
 
-			<div className='overflow-hidden rounded-xl border border-white/10'>
-				<div
-					ref={scrollContainerRef}
-					className='overflow-auto overscroll-contain'
-					style={{ height: tableHeight ?? 400 }}
-					onScroll={handleScroll}
-				>
-					<table className='w-full min-w-[1500px] table-fixed text-left text-sm'>
+			<div className='rounded-xl border border-white/10'>
+				<div>
+					<table className='generation-scenes-table w-full table-fixed text-left text-sm'>
 						<colgroup>
-							<col style={{ width: '27%' }} />
-							<col style={{ width: '9%' }} />
-							<col style={{ width: '8%' }} />
+							<col style={{ width: '26%' }} />
 							<col style={{ width: '10%' }} />
-							<col style={{ width: '6%' }} />
-							<col style={{ width: '40%' }} />
+							<col style={{ width: '10%' }} />
+							<col style={{ width: '12%' }} />
+							<col style={{ width: '10%' }} />
+							<col style={{ width: '32%' }} />
 						</colgroup>
 						<thead className='sticky top-0 z-10 bg-slate-900 text-slate-400'>
 							<tr>
@@ -328,7 +310,7 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 
 												{sceneHistory?.text && (
 													<p
-														className='mt-1 max-w-[320px] truncate text-xs text-slate-400'
+														className='mt-1 line-clamp-2 break-words text-xs leading-5 text-slate-400'
 														title={sceneHistory.text}
 													>
 														{sceneHistory.text}
@@ -336,11 +318,11 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 												)}
 											</td>
 
-											<td className='px-4 py-3 text-sm text-slate-300'>
+											<td data-label='Voice' className='px-4 py-3 text-sm text-slate-300'>
 												{sceneHistory?.latestAudio?.voice.name ?? '—'}
 											</td>
 
-											<td className='px-4 py-3 text-sm text-slate-300'>
+											<td data-label='Duration' className='px-4 py-3 text-sm text-slate-300'>
 												{(() => {
 													const durationMs =
 														sceneHistory?.latestAudio?.durationMs ??
@@ -357,7 +339,7 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 											</td>
 
 											{/* Status */}
-											<td className='px-4 py-3'>
+											<td data-label='Status' className='px-4 py-3'>
 												<span
 													className={
 														displayStatus === 'COMPLETED'
@@ -372,15 +354,15 @@ export function GenerationScenesTable({ storyId, items, audioHistory, sceneGener
 											</td>
 
 											{/* Attempts */}
-											<td className='px-4 py-3 text-slate-300'>{item?.attempts ?? '—'}</td>
+											<td data-label='Attempts' className='px-4 py-3 text-slate-300'>{item?.attempts ?? '—'}</td>
 
 											{/* Audio player toggle */}
 											<td className='px-4 py-3'>
-												<div className='flex items-center justify-end gap-2 whitespace-nowrap'>
+												<div className='flex flex-wrap items-center justify-end gap-2'>
 													{latestAudioId != null && (
 														<>
 															<div
-																className='w-[320px] shrink-0 overflow-hidden'
+																className={expandedSceneId === sceneId ? 'order-last w-full min-w-0 overflow-hidden' : 'hidden'}
 																aria-live='off'
 															>
 																{expandedSceneId === sceneId && (

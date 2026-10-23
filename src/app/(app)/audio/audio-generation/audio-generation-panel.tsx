@@ -50,6 +50,7 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 	const [sceneGeneration, setSceneGeneration] = useState<SceneGeneration | null>(null);
 
 	const requestInFlight = useRef(false);
+	const scrollContainerRef = useRef<HTMLDivElement>(null);
 
 	// Restore the last known main job.
 	useEffect(() => {
@@ -303,16 +304,16 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 		}).length ?? 0;
 
 	return (
-		<>
-			<section className='space-y-5 rounded-2xl border border-white/10 bg-white/[0.03] p-6'>
-				<div className='flex flex-wrap items-center justify-between gap-4'>
+		<div ref={scrollContainerRef} className='h-full min-h-0 overflow-y-auto overscroll-contain [overflow-anchor:none]'>
+			<section className='flex min-h-full min-w-0 flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-5'>
+				<div className='flex shrink-0 flex-col gap-4'>
 					<div>
 						<h2 className='text-xl font-semibold text-white'>Generate Audio</h2>
 
 						<p className='mt-1 text-sm text-slate-400'>Generate audio for the analyzed story scenes.</p>
 					</div>
 
-					<div className='flex flex-wrap items-center gap-2'>
+					<div className='grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center [&>button]:min-h-10'>
 						<button
 							type='button'
 							onClick={() => void handleDownloadAllAudio()}
@@ -337,11 +338,6 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 							{busy ? 'Please wait...' : job ? 'Regenerate All' : 'Generate Audio'}
 						</button>
 
-						{!allVoicesSelected && (
-							<p className='text-xs text-amber-400'>
-								Please assign and save voices for all characters before generating audio.
-							</p>
-						)}
 
 						{job && ['FAILED', 'PARTIAL'].includes(job.status) && retryableFailedCount > 0 && (
 							<button
@@ -367,6 +363,10 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 					</div>
 				</div>
 
+				{!allVoicesSelected && (
+					<p className='rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs leading-5 text-amber-300'>Assign and save a voice for each character in the Scenes tab before generating audio.</p>
+				)}
+
 				{exportError && (
 					<p role='alert' className='text-sm text-red-400'>
 						{exportError}
@@ -386,6 +386,7 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 						<GenerationJobSummary job={job} audioHistory={audioHistory} />
 
 						<GenerationScenesTable
+							scrollContainerRef={scrollContainerRef}
 							storyId={storyId}
 							items={job.items}
 							audioHistory={audioHistory}
@@ -405,6 +406,6 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 					void start();
 				}}
 			/>
-		</>
+		</div>
 	);
 }

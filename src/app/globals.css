@@ -1,3 +1,64 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.generation-scenes-table td {
+	overflow-wrap: anywhere;
+}
+
+.generation-scenes-table th {
+	white-space: nowrap;
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+	.generation-scenes-table th,
+	.generation-scenes-table td {
+		padding-left: 8px;
+		padding-right: 8px;
+	}
+}
+
+@media (max-width: 767px) {
+	.generation-scenes-table,
+	.generation-scenes-table tbody {
+		display: block;
+		width: 100%;
+	}
+
+	.generation-scenes-table colgroup,
+	.generation-scenes-table thead {
+		display: none;
+	}
+
+	.generation-scenes-table tr {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+		padding: 16px;
+	}
+
+	.generation-scenes-table td {
+		display: block;
+		min-width: 0;
+		max-width: none;
+		padding: 0;
+		overflow-wrap: anywhere;
+	}
+
+	.generation-scenes-table td:first-child,
+	.generation-scenes-table td:last-child {
+		grid-column: 1 / -1;
+	}
+
+	.generation-scenes-table td[data-label]::before {
+		content: attr(data-label);
+		display: block;
+		margin-bottom: 4px;
+		color: #94a3b8;
+		font-size: 11px;
+	}
+
+	.generation-scenes-table td:last-child > div {
+		justify-content: flex-start;
+	}
+}
