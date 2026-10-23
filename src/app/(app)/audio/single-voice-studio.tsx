@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { apiErrorMessage } from '../../../lib/api-error';
 import { getVoices } from '../../api/audio-studio/voices.api';
 import type { Voice } from '../../api/audio-studio/audio-stories.types';
 import {
 	createSingleVoiceProject,
+	cancelSingleVoiceGeneration,
 	fetchSingleVoiceAudio,
 	generateSingleVoice,
 	getSingleVoiceProject,
@@ -44,6 +46,22 @@ export function SingleVoiceStudio({
 	const [voiceModalOpen, setVoiceModalOpen] = useState(false);
 
 	const [busy, setBusy] = useState(false);
+	const generationInFlight = useRef(false);
+	const cancelInFlight = useRef(false);
+	const [cancelling, setCancelling] = useState(false);
+	const handleCancel = async () => {
+		if (!savedStoryId || cancelInFlight.current) return;
+		cancelInFlight.current = true;
+		setCancelling(true);
+		try {
+			setProject(await cancelSingleVoiceGeneration(savedStoryId));
+		} catch (error) {
+			setError(apiErrorMessage(error, 'Unable to cancel generation. Please check its status.'));
+		} finally {
+			cancelInFlight.current = false;
+			setCancelling(false);
+		}
+	};
 	const [error, setError] = useState('');
 
 	const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -68,6 +86,8 @@ export function SingleVoiceStudio({
 
 				if (active) {
 					setProject(p);
+					setSavedStoryId(storyId ?? null);
+					if (p?.style) setInternalStyle(p.style);
 					setVoiceId(p?.voiceId ?? null);
 					setVoices(v);
 					setLoading(false);
@@ -88,7 +108,7 @@ export function SingleVoiceStudio({
 	}, [storyId]);
 
 	useEffect(() => {
-		if (!savedStoryId || !project || project.status !== 'SINGLE_PROCESSING') {
+		if (!savedStoryId || !project || !['SINGLE_PENDING', 'SINGLE_PROCESSING'].includes(project.status)) {
 			return;
 		}
 
@@ -97,7 +117,7 @@ export function SingleVoiceStudio({
 		const timer = setInterval(() => {
 			getSingleVoiceProject(savedStoryId)
 				.then(p => {
-					if (active) setProject(p);
+					if (active && !cancelInFlight.current) setProject(p);
 				})
 				.catch(() => undefined);
 		}, 3000);
@@ -116,6 +136,7 @@ export function SingleVoiceStudio({
 
 		let active = true;
 		let objectUrl: string | null = null;
+		setAudioUrl(null);
 
 		fetchSingleVoiceAudio(savedStoryId, project.audio.id)
 			.then(blob => {
@@ -186,10 +207,17 @@ export function SingleVoiceStudio({
 	}
 
 	async function handleGenerate() {
-		if (!voiceId || busy || project?.status === 'SINGLE_PROCESSING' || (!savedStoryId && !draftScript.trim())) {
+		if (
+			!voiceId ||
+			busy ||
+			generationInFlight.current ||
+			['SINGLE_PENDING', 'SINGLE_PROCESSING'].includes(project?.status ?? '') ||
+			(!savedStoryId && !draftScript.trim())
+		) {
 			return;
 		}
 
+		generationInFlight.current = true;
 		setBusy(true);
 		setError('');
 
@@ -207,13 +235,23 @@ export function SingleVoiceStudio({
 			}
 
 			await generateSingleVoice(id, voiceId, {
-				style: selectedStyle || undefined
+				style: selectedStyle || undefined,
+				...(!storyId ? { title: draftTitle.trim() || 'Untitled Audio', content: draftScript.trim() } : {})
 			});
 
+			setProject(previous => ({
+				id: id!,
+				title: draftTitle || previous?.title || 'Untitled Audio',
+				content: draftScript || previous?.content || '',
+				voiceId,
+				audio: previous?.audio ?? null,
+				status: 'SINGLE_PENDING'
+			}));
 			setProject(await getSingleVoiceProject(id));
-		} catch {
-			setError('Could not start generation. If your project was saved, check My Stories before retrying.');
+		} catch (error) {
+			setError(apiErrorMessage(error, 'Could not start generation. Check your project status before retrying.'));
 		} finally {
+			generationInFlight.current = false;
 			setBusy(false);
 		}
 	}
@@ -301,7 +339,7 @@ export function SingleVoiceStudio({
 							id='single-voice-style'
 							value={selectedStyle}
 							onChange={e => setSelectedStyle(e.target.value)}
-							disabled={busy || project?.status === 'SINGLE_PROCESSING'}
+							disabled={busy || ['SINGLE_PENDING', 'SINGLE_PROCESSING'].includes(project?.status ?? '')}
 							className='min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-900 px-2 py-1.5 text-sm text-white sm:mt-2 sm:w-full sm:px-3 sm:py-2'
 						>
 							<option value=''>Default / Natural</option>
@@ -340,11 +378,11 @@ export function SingleVoiceStudio({
 							!voiceId ||
 							busy ||
 							(!savedStoryId && !draftScript.trim()) ||
-							project?.status === 'SINGLE_PROCESSING'
+							['SINGLE_PENDING', 'SINGLE_PROCESSING'].includes(project?.status ?? '')
 						}
 						className='w-full rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 px-3 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:shrink-0 sm:px-5 sm:py-3'
 					>
-						{project?.status === 'SINGLE_PROCESSING'
+						{['SINGLE_PENDING', 'SINGLE_PROCESSING'].includes(project?.status ?? '')
 							? 'Generating...'
 							: busy
 								? 'Starting...'
@@ -354,12 +392,27 @@ export function SingleVoiceStudio({
 					</button>
 				</div>
 
-				{project?.status === 'SINGLE_PROCESSING' && (
-					<p role='status' className='mt-3 text-sm text-indigo-300'>
-						Generating your narration. You can reopen this project later.
+				{['SINGLE_PENDING', 'SINGLE_PROCESSING'].includes(project?.status ?? '') && (
+					<div className='mt-3 flex flex-wrap items-center gap-3'>
+						<button type='button' onClick={() => void handleCancel()} disabled={cancelling}
+							className='rounded-lg border border-rose-400/40 px-4 py-2 text-sm text-rose-300 disabled:opacity-50'>
+							{cancelling ? 'Cancelling...' : 'Cancel generation'}
+						</button>
+						<p role='status' className='text-xs text-slate-400'>Previous audio stays saved. An in-flight provider request may still be charged.</p>
+					</div>
+				)}
+				{project?.status === 'SINGLE_CANCELLED' && <p role='status' className='mt-3 text-sm text-slate-300'>Generation cancelled. Previous audio is still available.</p>}
+
+				{project?.error && (
+					<p role='alert' className='mt-3 text-sm text-red-400'>
+						{project.error}
 					</p>
 				)}
-
+				{project?.audio && project.audioIsCurrent === false && (
+					<p className='mt-3 text-xs text-amber-300'>
+						Previous audio is available. Generate audio for the current script and voice.
+					</p>
+				)}
 				{project?.status === 'SINGLE_FAILED' && (
 					<p role='alert' className='mt-3 text-sm text-rose-400'>
 						Generation failed. Try again or choose another voice.

@@ -1,310 +1,180 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-
 import {
 	createAudioGenerationJob,
-	getAudioGenerationJob,
+	cancelAudioGenerationJob,
+	getLatestStoryJob,
 	retryAudioGenerationJob,
 	downloadStoryAudioZip,
 	getStoryAudioHistory
 } from '../../../api/audio-studio/audio-generation.api';
-
-import type {
-	AudioGenerationJobDetails,
-	AudioGenerationStatus,
-	StoryAudioHistory
-} from '../../../api/audio-studio/audio-generation.types';
-
+import type { AudioGenerationJobDetails, StoryAudioHistory } from '../../../api/audio-studio/audio-generation.types';
+import { apiErrorMessage } from '../../../../lib/api-error';
 import { GenerationScenesTable } from './components/generation-scenes-table';
 import { GenerationJobSummary } from './components/generation-job-summary';
 import { RegenerationConfirmModal } from './components/regeneration-confirm-modal';
 
-type Props = {
-	storyId: number;
-	allVoicesSelected: boolean;
-};
-type SceneGeneration = {
-	sceneId: number;
-	status: AudioGenerationStatus;
-};
+type Props = { storyId: number; allVoicesSelected: boolean; isEditing?: boolean };
+const ACTIVE = ['PENDING', 'PROCESSING', 'WAITING'];
 
-const ACTIVE: AudioGenerationStatus[] = ['PENDING', 'PROCESSING', 'WAITING'];
-
-export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
+export function AudioGenerationPanel({ storyId, allVoicesSelected, isEditing = false }: Props) {
 	const [job, setJob] = useState<AudioGenerationJobDetails | null>(null);
-	const [jobId, setJobId] = useState<number | null>(null);
-
+	const [audioHistory, setAudioHistory] = useState<StoryAudioHistory | null>(null);
 	const [busy, setBusy] = useState(false);
+	const [cancelling, setCancelling] = useState(false);
+	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState('');
-
+	const [syncError, setSyncError] = useState('');
 	const [exporting, setExporting] = useState(false);
 	const [exportError, setExportError] = useState('');
-
 	const [showRegenerateModal, setShowRegenerateModal] = useState(false);
-
-	const [audioHistory, setAudioHistory] = useState<StoryAudioHistory | null>(null);
-
-	const [sceneJobId, setSceneJobId] = useState<number | null>(null);
-
-	const [sceneGeneration, setSceneGeneration] = useState<SceneGeneration | null>(null);
-
-	const requestInFlight = useRef(false);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const requestInFlight = useRef(false);
+	const epoch = useRef(0);
+	const mutationInFlight = useRef(false);
 
-	// Restore the last known main job.
-	useEffect(() => {
-		setJob(null);
-		setError('');
-		setAudioHistory(null);
-		setSceneJobId(null);
-		setSceneGeneration(null);
-		setShowRegenerateModal(false);
-
-		const stored = window.localStorage.getItem(`autocanvas:audio-job:${storyId}`);
-
-		const parsed = stored === null ? NaN : Number(stored);
-
-		setJobId(Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null);
-	}, [storyId]);
-
-	// Refresh main generation job.
-	const refresh = useCallback(async (id: number) => {
+	const refresh = useCallback(async () => {
 		if (requestInFlight.current) return;
-
 		requestInFlight.current = true;
-
+		const version = epoch.current;
 		try {
-			const data = await getAudioGenerationJob(id);
-
-			setJob(data);
-			setError('');
+			const [latest, history] = await Promise.all([getLatestStoryJob(storyId), getStoryAudioHistory(storyId)]);
+			if (version !== epoch.current) return;
+			setJob(latest);
+			setAudioHistory(history);
+			setSyncError('');
 		} catch (error) {
-			console.error('Failed to load generation job:', error);
-
-			setError('Unable to load generation status. Please try again.');
+			if (version === epoch.current)
+				setSyncError(apiErrorMessage(error, 'Unable to refresh generation status. Please retry.'));
 		} finally {
 			requestInFlight.current = false;
-		}
-	}, []);
-
-	// Load latest generated audio for all story scenes.
-	const loadAudioHistory = useCallback(async () => {
-		try {
-			const data = await getStoryAudioHistory(storyId);
-			setAudioHistory(data);
-		} catch (error) {
-			console.error('Failed to load audio history:', error);
+			if (version === epoch.current) setLoading(false);
 		}
 	}, [storyId]);
 
-	// Initial audio history and main job status changes.
 	useEffect(() => {
-		void loadAudioHistory();
-	}, [loadAudioHistory, job?.id, job?.status, job?.completedScenes, job?.failedScenes]);
+		epoch.current++;
+		setJob(null);
+		setAudioHistory(null);
+		setLoading(true);
+		setError('');
+		void refresh();
+		return () => {
+			epoch.current++;
+		};
+	}, [refresh]);
 
-	// Fetch main job when jobId changes.
+	// Server state restores full jobs and single-scene jobs after tab changes,
+	// reloads, and opening the story on another device. Also retry initial errors.
 	useEffect(() => {
-		if (jobId === null) return;
-
-		void refresh(jobId);
-	}, [jobId, refresh]);
-
-	// Main job polling.
-	useEffect(() => {
-		if (jobId === null || (job && !ACTIVE.includes(job.status))) {
-			return;
-		}
-
 		const timer = window.setInterval(() => {
-			void refresh(jobId);
+			void refresh();
 		}, 3000);
+		return () => window.clearInterval(timer);
+	}, [refresh]);
 
-		return () => {
-			window.clearInterval(timer);
-		};
-	}, [jobId, job?.status, refresh]);
+	const active = !!job && ACTIVE.includes(job.status);
+	const canMutate = !loading && !syncError && !active && !busy && !isEditing;
+	const hasGeneratedAudio = (audioHistory?.generatedScenes ?? 0) > 0 || (job?.completedScenes ?? 0) > 0;
+	const retryableFailedCount = job?.items?.filter(item => item.status === 'FAILED').length ?? 0;
+	const canDownload =
+		!!audioHistory && audioHistory.totalScenes > 0 && audioHistory.generatedScenes === audioHistory.totalScenes;
 
-	// Single-scene regeneration polling.
-	// Does not replace the main job or its scenes table.
-	useEffect(() => {
-		if (sceneJobId === null) return;
-
-		let cancelled = false;
-		let timer: ReturnType<typeof setTimeout> | null = null;
-
-		const checkSceneJob = async () => {
-			try {
-				const result = await getAudioGenerationJob(sceneJobId);
-
-				if (cancelled) return;
-
-				const sceneItem = result.items[0];
-
-				if (sceneItem) {
-					setSceneGeneration({
-						sceneId: sceneItem.sceneId,
-						status: sceneItem.status
-					});
-				}
-
-				if (ACTIVE.includes(result.status)) {
-					timer = setTimeout(() => {
-						void checkSceneJob();
-					}, 3000);
-
-					return;
-				}
-
-				// Generation finished: reload latest audio versions.
-				await loadAudioHistory();
-
-				if (!cancelled) {
-					setSceneJobId(null);
-
-					// Keep the final status available to the table.
-					if (sceneItem) {
-						setSceneGeneration({
-							sceneId: sceneItem.sceneId,
-							status: sceneItem.status
-						});
-					}
-				}
-			} catch (error) {
-				console.error('Unable to refresh scene generation:', error);
-
-				if (!cancelled) {
-					timer = setTimeout(() => {
-						void checkSceneJob();
-					}, 5000);
-				}
-			}
-		};
-
-		void checkSceneJob();
-
-		return () => {
-			cancelled = true;
-
-			if (timer !== null) {
-				clearTimeout(timer);
-			}
-		};
-	}, [sceneJobId, loadAudioHistory]);
-
-	const active = job ? ACTIVE.includes(job.status) : jobId !== null;
-
-	const sceneActive = sceneJobId !== null || (sceneGeneration !== null && ACTIVE.includes(sceneGeneration.status));
-
-	// Generate / Regenerate all scenes.
 	const start = async () => {
-		if (busy || active || sceneActive || !allVoicesSelected) return;
+		if (!canMutate || !allVoicesSelected || mutationInFlight.current) return;
+		mutationInFlight.current = true;
+		epoch.current++;
 		setBusy(true);
 		setError('');
-
 		try {
 			const created = await createAudioGenerationJob(storyId);
-
-			window.localStorage.setItem(`autocanvas:audio-job:${storyId}`, String(created.id));
-
-			setJobId(created.id);
-			setJob(null);
-			setSceneGeneration(null);
-
-			await refresh(created.id);
+			setJob({ ...created, items: [] });
+			await refresh();
 		} catch (error) {
-			console.error('Unable to start audio generation:', error);
-
-			setError('Unable to start audio generation. Check scene voice assignments and try again.');
+			setError(apiErrorMessage(error, 'Unable to start generation. Please refresh and try again.'));
 		} finally {
+			mutationInFlight.current = false;
 			setBusy(false);
 		}
 	};
 
-	// Retry failed scenes using existing backend job retry.
 	const retry = async () => {
-		if (busy || sceneActive || !job || !['FAILED', 'PARTIAL'].includes(job.status)) {
-			return;
-		}
-
+		if (!canMutate || !job || !['FAILED', 'PARTIAL'].includes(job.status) || mutationInFlight.current) return;
+		mutationInFlight.current = true;
+		epoch.current++;
 		setBusy(true);
 		setError('');
-
 		try {
-			const updated = await retryAudioGenerationJob(job.id);
-
-			window.localStorage.setItem(`autocanvas:audio-job:${storyId}`, String(updated.id));
-
-			setJobId(updated.id);
-			setJob(null);
-			setSceneGeneration(null);
-
-			await refresh(updated.id);
+			const created = await retryAudioGenerationJob(job.id);
+			setJob({ ...created, items: [] });
+			await refresh();
 		} catch (error) {
-			console.error('Unable to retry failed scenes:', error);
-
-			setError('Unable to retry failed scenes. Please try again.');
+			setError(apiErrorMessage(error, 'Unable to retry failed scenes.'));
 		} finally {
+			mutationInFlight.current = false;
 			setBusy(false);
 		}
 	};
 
-	// Download all latest scene WAV files as ZIP.
-	const handleDownloadAllAudio = async () => {
-		if (exporting || active || busy || sceneActive) return;
+	const cancel = async () => {
+		if (!job || !active || mutationInFlight.current) return;
+		mutationInFlight.current = true;
+		epoch.current++;
+		setCancelling(true);
+		setError('');
+		try {
+			const cancelled = await cancelAudioGenerationJob(job.id);
+			epoch.current++;
+			setJob(cancelled);
+			await refresh();
+		} catch (error) {
+			setError(apiErrorMessage(error, 'Unable to cancel generation. Refresh to check its status.'));
+		} finally {
+			mutationInFlight.current = false;
+			setCancelling(false);
+		}
+	};
 
+	const handleDownloadAllAudio = async () => {
+		if (exporting || active || busy || !canDownload) return;
 		setExporting(true);
 		setExportError('');
-
 		try {
 			const blob = await downloadStoryAudioZip(storyId);
 			const url = URL.createObjectURL(blob);
-
-			try {
-				const link = document.createElement('a');
-
-				link.href = url;
-				link.download = `story-${storyId}-audio.zip`;
-
-				document.body.appendChild(link);
-				link.click();
-				link.remove();
-			} finally {
-				window.setTimeout(() => {
-					URL.revokeObjectURL(url);
-				}, 1000);
-			}
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = `story-${storyId}-audio.zip`;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 		} catch (error) {
-			console.error('Audio ZIP download failed:', error);
-
-			setExportError('Unable to download audio. Make sure all scenes have generated audio.');
+			setExportError(apiErrorMessage(error, 'Unable to download audio. Please try again.'));
 		} finally {
 			setExporting(false);
 		}
 	};
 
-	// Single-scene job callback.
-	const handleSceneJobCreated = (newJobId: number, sceneId: number) => {
-		setSceneGeneration({
-			sceneId,
-			status: 'PENDING'
+	const handleSceneJobCreated = (id: number, sceneId: number) => {
+		setJob({
+			id,
+			storyId,
+			status: 'PENDING',
+			totalScenes: 1,
+			completedScenes: 0,
+			failedScenes: 0,
+			items: [{ id: 0, sceneId, status: 'PENDING', attempts: 0, error: null, audio: null }]
 		});
-
-		// Main jobId remains unchanged.
-		setSceneJobId(newJobId);
+		void refresh();
 	};
 
-	const retryableFailedCount =
-		job?.items.filter(item => {
-			if (item.status !== 'FAILED') return false;
-
-			const sceneHistory = audioHistory?.scenes.find(scene => scene.id === item.sceneId);
-
-			return !sceneHistory?.latestAudio;
-		}).length ?? 0;
-
 	return (
-		<div ref={scrollContainerRef} className='h-full min-h-0 overflow-y-auto overscroll-contain [overflow-anchor:none]'>
+		<div
+			ref={scrollContainerRef}
+			className='h-full min-h-0 overflow-y-auto overscroll-contain [overflow-anchor:none]'
+		>
 			<section className='flex min-h-full min-w-0 flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-5'>
 				<div className='flex shrink-0 flex-col gap-4'>
 					<div>
@@ -317,7 +187,7 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 						<button
 							type='button'
 							onClick={() => void handleDownloadAllAudio()}
-							disabled={exporting || active || busy || sceneActive}
+							disabled={exporting || active || busy || !canDownload}
 							className='rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50'
 						>
 							{exporting ? 'Downloading...' : 'Download All Audio'}
@@ -326,45 +196,57 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 						<button
 							type='button'
 							onClick={() => {
-								if (job) {
+								if (hasGeneratedAudio) {
 									setShowRegenerateModal(true);
 								} else {
 									void start();
 								}
 							}}
-							disabled={busy || active || sceneActive || !allVoicesSelected}
+							disabled={!canMutate || !allVoicesSelected}
 							className='rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50'
 						>
-							{busy ? 'Please wait...' : job ? 'Regenerate All' : 'Generate Audio'}
+							{busy ? 'Please wait...' : active ? job?.status === 'WAITING' ? 'Waiting...' : job?.status === 'PENDING' ? 'Queued' : 'Generating...' : hasGeneratedAudio ? 'Regenerate All' : 'Generate Audio'}
 						</button>
 
-
+						{active && (
+							<button type='button' onClick={() => void cancel()} disabled={cancelling || busy}
+								className='rounded-lg border border-rose-400/40 px-4 py-2 text-sm text-rose-300 disabled:opacity-50'>
+								{cancelling ? 'Cancelling...' : 'Cancel generation'}
+							</button>
+						)}
 						{job && ['FAILED', 'PARTIAL'].includes(job.status) && retryableFailedCount > 0 && (
 							<button
 								type='button'
 								onClick={() => void retry()}
-								disabled={busy || sceneActive}
+								disabled={!canMutate}
 								className='rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50'
 							>
 								Retry Failed ({retryableFailedCount})
 							</button>
 						)}
 
-						{jobId !== null && (
+						{
 							<button
 								type='button'
-								onClick={() => void refresh(jobId)}
+								onClick={() => void refresh()}
 								disabled={busy}
 								className='rounded-lg border border-white/20 px-3 py-2 text-sm text-white hover:bg-white/10 disabled:opacity-50'
 							>
 								Refresh
 							</button>
-						)}
+						}
 					</div>
 				</div>
 
+				{(active || job?.status === 'CANCELLED') && (
+					<p role='status' className='text-xs text-slate-400'>
+						{job?.status === 'CANCELLED' ? 'Generation cancelled. Saved audio is still available.' : 'Cancel stops remaining scenes and keeps saved audio. An in-flight provider request may still be charged.'}
+					</p>
+				)}
 				{!allVoicesSelected && (
-					<p className='rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs leading-5 text-amber-300'>Assign and save a voice for each character in the Scenes tab before generating audio.</p>
+					<p className='rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs leading-5 text-amber-300'>
+						Assign and save a voice for each character in the Scenes tab before generating audio.
+					</p>
 				)}
 
 				{exportError && (
@@ -373,24 +255,39 @@ export function AudioGenerationPanel({ storyId, allVoicesSelected }: Props) {
 					</p>
 				)}
 
+				{syncError && (
+					<p role='alert' className='text-sm text-red-400'>
+						{syncError}
+					</p>
+				)}
 				{error && (
 					<p role='alert' className='text-sm text-red-400'>
 						{error}
 					</p>
 				)}
 
-				{jobId !== null && !job && <p className='text-sm text-slate-400'>Loading generation job...</p>}
+				{loading && (
+					<p role='status' className='text-sm text-slate-400'>
+						Loading generation status...
+					</p>
+				)}
+				{isEditing && (
+					<p className='text-sm text-amber-300'>
+						Save or cancel your script changes before generating audio.
+					</p>
+				)}
 
-				{job && (
+				{(job || audioHistory) && (
 					<>
-						<GenerationJobSummary job={job} audioHistory={audioHistory} />
+						{job && <GenerationJobSummary job={job} audioHistory={audioHistory} />}
 
 						<GenerationScenesTable
 							scrollContainerRef={scrollContainerRef}
 							storyId={storyId}
-							items={job.items}
+							items={job?.items ?? []}
 							audioHistory={audioHistory}
-							sceneGeneration={sceneGeneration}
+							sceneGeneration={null}
+							generationBlocked={!canMutate || !allVoicesSelected}
 							onJobCreated={handleSceneJobCreated}
 						/>
 					</>

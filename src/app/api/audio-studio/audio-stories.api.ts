@@ -1,5 +1,5 @@
 import api from '../axios';
-import type { AudioStory, CreateAudioStoryRequest, UpdateAudioStoryRequest } from './audio-stories.types';
+import type { AudioStory, CreateAudioStoryRequest, UpdateAudioStoryRequest, StoryAnalysisJob } from './audio-stories.types';
 
 export const getAudioStories = async (): Promise<AudioStory[]> => {
 	const response = await api.get<AudioStory[]>('/audio-stories');
@@ -22,12 +22,15 @@ export const updateAudioStory = async (storyId: number, data: UpdateAudioStoryRe
 	return response.data;
 };
 
-export const analyzeAudioStory = async (storyId: number): Promise<AudioStory> => {
-	const response = await api.post<AudioStory>(`/audio-stories/${storyId}/analyze`);
-	console.log('REANALYZE RESPONSE:', response);
-
+export const analyzeAudioStory = async (storyId: number): Promise<StoryAnalysisJob> => {
+	const response = await api.post<StoryAnalysisJob>(`/audio-stories/${storyId}/analyze`);
 	return response.data;
 };
+
+export async function cancelStoryAnalysis(storyId: number, jobId: string): Promise<StoryAnalysisJob> {
+	const { data } = await api.post<StoryAnalysisJob>(`/audio-stories/${storyId}/analysis-jobs/${jobId}/cancel`);
+	return data;
+}
 
 export interface StoryCastCharacter {
 	id: number;

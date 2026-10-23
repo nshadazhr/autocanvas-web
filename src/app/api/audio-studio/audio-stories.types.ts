@@ -1,5 +1,16 @@
 export type AnalysisStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
+export interface StoryAnalysisJob {
+	id: string;
+	storyId: number;
+	status: 'QUEUED' | 'PROCESSING' | 'WAITING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+	attempts: number;
+	nextRetryAt: string | null;
+	errorCode: string | null;
+	errorMessage: string | null;
+	source: string | null;
+}
+
 export interface AudioStoryCharacter {
 	name: string;
 	gender: string;
@@ -39,6 +50,7 @@ export interface AudioStory {
 	analyzedAt: string | null;
 	analysisStartedAt: string | null;
 	analysisAttemptId: string | null;
+	analysisJob?: StoryAnalysisJob | null;
 	created_at: string;
 	updated_at: string;
 }

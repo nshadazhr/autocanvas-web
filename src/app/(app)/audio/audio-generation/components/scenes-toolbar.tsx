@@ -1,6 +1,6 @@
 'use client';
 
-export type SceneStatusFilter = 'ALL' | 'COMPLETED' | 'FAILED' | 'PENDING' | 'PROCESSING' | 'WAITING';
+export type SceneStatusFilter = 'ALL' | 'COMPLETED' | 'FAILED' | 'PENDING' | 'PROCESSING' | 'WAITING' | 'CANCELLED';
 
 export type SceneViewMode = 'INFINITE' | 'PAGINATION';
 
@@ -50,6 +50,7 @@ export function ScenesToolbar({
 				<option value='PENDING'>Pending</option>
 				<option value='PROCESSING'>Processing</option>
 				<option value='WAITING'>Waiting</option>
+				<option value='CANCELLED'>Cancelled</option>
 			</select>
 
 			<select

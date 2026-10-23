@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { apiErrorMessage } from '../../../../../lib/api-error';
 
 import {
 	analyzeAudioStory,
 	getAudioStoryById,
 	getStoryCast,
-	updateAudioStory
+	updateAudioStory,
+	cancelStoryAnalysis
 } from '../../../../api/audio-studio/audio-stories.api';
 
 import type { AudioStory } from '../../../../api/audio-studio/audio-stories.types';
@@ -42,6 +44,7 @@ export default function StoryDetailsPage() {
 
 	const [analyzing, setAnalyzing] = useState(false);
 	const [analyzeError, setAnalyzeError] = useState('');
+	const [cancellingAnalysis, setCancellingAnalysis] = useState(false);
 
 	const [allVoicesSelected, setAllVoicesSelected] = useState(false);
 	const [checkingVoices, setCheckingVoices] = useState(true);
@@ -150,8 +153,8 @@ export default function StoryDetailsPage() {
 
 			setStory(updatedStory);
 			setIsEditing(false);
-		} catch {
-			setSaveError('Failed to save story. Please try again.');
+		} catch (error) {
+			setSaveError(apiErrorMessage(error, 'Failed to save story. Please try again.'));
 		} finally {
 			setSaving(false);
 		}
@@ -170,7 +173,12 @@ export default function StoryDetailsPage() {
 			setStory(updatedStory);
 		} catch (error) {
 			console.error('Story analysis failed:', error);
-			setAnalyzeError('Failed to analyze story. Please try again.');
+			setAnalyzeError(apiErrorMessage(error, 'Failed to analyze story. Please try again.'));
+			try {
+				setStory(await getAudioStoryById(story.id));
+			} catch {
+				/* Preserve the original analysis error. */
+			}
 		} finally {
 			setAnalyzing(false);
 		}
@@ -242,6 +250,18 @@ export default function StoryDetailsPage() {
 	const analysisCompleted = story.analysisStatus === 'COMPLETED' && story.analysisResult?.validation.valid === true;
 
 	const analysisResult = analysisCompleted ? story.analysisResult : null;
+	const analysisJob = story.analysisJob;
+	const analysisActive = !!analysisJob && ['QUEUED', 'PROCESSING', 'WAITING'].includes(analysisJob.status);
+	const cancelAnalysis = async () => {
+		if (!analysisJob || cancellingAnalysis) return;
+		setCancellingAnalysis(true);
+		setAnalyzeError('');
+		try {
+			await cancelStoryAnalysis(story.id, analysisJob.id);
+			setStory(await getAudioStoryById(story.id));
+		} catch (error) { setAnalyzeError(apiErrorMessage(error, 'Unable to cancel analysis. Please try again.')); }
+		finally { setCancellingAnalysis(false); }
+	};
 
 	return (
 		<div className='flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden text-slate-100 sm:gap-6 [&>a]:shrink-0'>
@@ -320,6 +340,16 @@ export default function StoryDetailsPage() {
 			{saveError && <p className='text-sm text-red-400'>{saveError}</p>}
 
 			{analyzeError && <p className='text-sm text-red-400'>{analyzeError}</p>}
+
+			{analysisActive && (
+				<div className='flex shrink-0 items-center justify-between gap-3 rounded-xl border border-indigo-400/20 bg-indigo-500/10 p-3'>
+					<div aria-live='polite' className='min-w-0 text-sm'>
+						<p className='font-medium text-indigo-200'>{analysisJob.status === 'QUEUED' ? 'Analysis queued' : analysisJob.status === 'WAITING' ? 'Analysis waiting — automatic retry scheduled' : 'Analyzing your story…'}</p>
+						<p className='mt-1 text-xs text-slate-400'>{analysisJob.status === 'WAITING' && analysisJob.nextRetryAt ? `Next attempt after ${new Date(analysisJob.nextRetryAt).toLocaleTimeString()}. ` : ''}You can leave this page; analysis continues in the background.</p>
+					</div>
+					<button type='button' disabled={cancellingAnalysis} onClick={() => void cancelAnalysis()} className='shrink-0 rounded-lg border border-white/20 px-3 py-2 text-sm disabled:opacity-50'>{cancellingAnalysis ? 'Cancelling…' : 'Cancel analysis'}</button>
+				</div>
+			)}
 
 			{/* Editor Tabs */}
 			<div
@@ -405,7 +435,13 @@ export default function StoryDetailsPage() {
 
 			{/* Scenes and voice assignment */}
 			{activeTab === 'scenes' && (
-				<div key='scenes' className='flex min-h-0 flex-1 flex-col overflow-hidden' id='audio-panel-scenes' role='tabpanel' aria-labelledby='audio-tab-scenes'>
+				<div
+					key='scenes'
+					className='flex min-h-0 flex-1 flex-col overflow-hidden'
+					id='audio-panel-scenes'
+					role='tabpanel'
+					aria-labelledby='audio-tab-scenes'
+				>
 					{analysisResult ? (
 						<ScenesPanel
 							storyId={story.id}
@@ -424,10 +460,17 @@ export default function StoryDetailsPage() {
 
 			{/* Generate Audio Tab */}
 			{activeTab === 'generate' && (
-				<div key='generate' className='min-h-0 flex-1 overflow-hidden' id='audio-panel-generate' role='tabpanel' aria-labelledby='audio-tab-generate'>
+				<div
+					key='generate'
+					className='min-h-0 flex-1 overflow-hidden'
+					id='audio-panel-generate'
+					role='tabpanel'
+					aria-labelledby='audio-tab-generate'
+				>
 					{analysisResult ? (
 						<AudioGenerationPanel
 							storyId={storyId}
+							isEditing={isEditing}
 							allVoicesSelected={allVoicesSelected && !checkingVoices}
 						/>
 					) : (

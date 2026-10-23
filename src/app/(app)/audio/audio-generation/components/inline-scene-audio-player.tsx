@@ -74,13 +74,13 @@ export function InlineSceneAudioPlayer({ audioId }: { audioId: number }) {
 
 	if (error)
 		return (
-			<span role='alert' className='block w-[320px] truncate text-xs text-red-400'>
+			<span role='alert' className='block w-full max-w-[320px] text-xs text-red-400'>
 				{error}
 			</span>
 		);
 
 	return (
-		<div className='flex h-10 w-[320px] shrink-0 items-center gap-2 rounded-lg border border-white/10 bg-slate-800/80 px-2 text-slate-100'>
+		<div className='flex h-10 w-full min-w-0 max-w-[320px] items-center gap-2 rounded-lg border border-white/10 bg-slate-800/80 px-2 text-slate-100'>
 			<audio
 				ref={audioRef}
 				src={url ?? undefined}

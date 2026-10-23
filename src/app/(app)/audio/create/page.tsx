@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createAudioStory, analyzeAudioStory } from '../../../api/audio-studio/audio-stories.api';
+import { createAudioStory, analyzeAudioStory, updateAudioStory } from '../../../api/audio-studio/audio-stories.api';
+import { apiErrorMessage } from '../../../../lib/api-error';
 import { SingleVoiceStudio } from '../single-voice-studio';
 
 type VoiceMode = 'single' | 'multiple';
@@ -42,6 +43,8 @@ export default function CreateAudioPage() {
 
 	const scriptRef = useRef<HTMLTextAreaElement>(null);
 	const selectionRef = useRef({ start: 0, end: 0 });
+	const requestInFlight = useRef(false);
+	const savedDraft = useRef<{ id: number; title: string; content: string } | null>(null);
 
 	const canContinue = script.trim().length > 0;
 
@@ -105,27 +108,41 @@ export default function CreateAudioPage() {
 	}, [emotionModalOpen]);
 
 	async function handleContinue() {
-		if (!script.trim() || loading) return;
+		if (!script.trim() || loading || requestInFlight.current) return;
+		requestInFlight.current = true;
 
 		setLoading(true);
 		setError('');
 
 		try {
-			const story = await createAudioStory({
+			const draft = {
 				title: title.trim() || 'Untitled Audio',
 				content: script.trim()
-			});
+			};
+			if (!savedDraft.current) {
+				const story = await createAudioStory(draft);
+				savedDraft.current = { id: story.id, ...draft };
+			} else if (savedDraft.current.title !== draft.title || savedDraft.current.content !== draft.content) {
+				await updateAudioStory(savedDraft.current.id, draft);
+				savedDraft.current = { id: savedDraft.current.id, ...draft };
+			}
 
-			await analyzeAudioStory(story.id);
+			await analyzeAudioStory(savedDraft.current.id);
 
-			router.push(`/audio/stories/${story.id}`);
+			router.push(`/audio/stories/${savedDraft.current.id}`);
 		} catch (err) {
 			console.error('Failed to create or analyze story:', err);
 
 			setError(
-				'Could not complete the request. Your project may already have been saved. Please check My Stories before trying again.'
+				apiErrorMessage(
+					err,
+					savedDraft.current
+						? 'Project saved. Retry analysis to continue with this project.'
+						: 'Could not save your project. Please try again.'
+				)
 			);
 		} finally {
+			requestInFlight.current = false;
 			setLoading(false);
 		}
 	}
