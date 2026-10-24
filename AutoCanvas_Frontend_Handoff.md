@@ -1,5 +1,7 @@
 # AutoCanvas Audio Studio — Frontend Handoff
 
+> Historical handoff context. Some architecture, route and feature assumptions below predate the current implementation. Start with the current [README](README.md), [architecture](docs/architecture.md) and [frontend guide](docs/frontend-guide.md); verify source before following old implementation notes.
+
 ## 1. Project Context
 
 Main AutoCanvas naam ka web application develop kar raha hoon.
